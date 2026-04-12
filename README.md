@@ -10,6 +10,9 @@ LinkedIn restricts how many profiles free-tier users can view. Ghost Searcher wo
 
 ---
 
+## Main page
+![Main page](./images/main-page.png)
+
 ## Features
 
 - **Dynamic query generation** — builds complex Google Dorking strings from Job Title, Company, and Location
