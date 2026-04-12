@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# LinkedIn Ghost Searcher 👻
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> Bypass LinkedIn's search limits using Google Dorking — find profiles anonymously, without triggering "LinkedIn Jail".
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## What is this?
 
-### `npm start`
+LinkedIn restricts how many profiles free-tier users can view. Ghost Searcher works around this by generating advanced Google Dork queries that surface LinkedIn profiles directly through Google — meaning no profile view notifications, no paywalls, no restrictions.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Features
 
-### `npm test`
+- **Dynamic query generation** — builds complex Google Dorking strings from Job Title, Company, and Location
+- **Anti-noise filtering** — operators like `-intitle:"profiles"` and `-inurl:"dir/"` strip directory pages and junk results
+- **Outreach templates** — built-in message templates for cold networking and coffee chats
+- **Type-safe end-to-end** — TypeScript interfaces on the frontend, Pydantic models on the backend
+- **Responsive UI** — dark-themed SCSS interface
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Tech Stack
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+| Layer | Tech |
+|---|---|
+| Frontend | React 18, TypeScript, SCSS |
+| Backend | FastAPI, Python 3.11+, Uvicorn |
+| Communication | REST API with CORS middleware |
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Quick Start
 
-### `npm run eject`
+**Backend**
+```bash
+pip install fastapi uvicorn
+uvicorn main:app --reload
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+**Frontend**
+```bash
+npm install
+npm start
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The frontend runs on `http://localhost:3000`, backend on `http://localhost:8000`.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## How it works
 
-## Learn More
+1. User enters a Job Title, Company, and optional Location
+2. The FastAPI backend constructs a Google Dork string, e.g.:
+   ```
+   site:linkedin.com/in "Software Engineer" "Google" "Berlin" -intitle:"profiles" -inurl:"dir/"
+   ```
+3. The frontend receives the raw query + a ready-to-open Google URL
+4. User clicks through to anonymous search results
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+---
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Project Structure
 
-### Code Splitting
+```
+├── backend/
+│   └── main.py          
+└── frontend/
+    ├── src/
+    │   ├── App.tsx       
+    │   └── App.scss      
+    └── package.json
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+---
 
-### Analyzing the Bundle Size
+## For Developers
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- **State management** — React Hooks (`useState`, `useEffect`)
+- **Async communication** — clean `async/await` fetch calls
+- **Validation** — TypeScript interfaces + Pydantic schemas enforce strict types across the stack
+- **Architecture** — query generation logic is fully decoupled from the UI layer
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Disclaimer
 
-### Advanced Configuration
+This tool is intended for educational purposes and legitimate OSINT research only. Always respect LinkedIn's Terms of Service and applicable privacy laws in your jurisdiction.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+<p align="center">Made with 👻 and Google Dorking</p>
