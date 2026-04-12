@@ -5,10 +5,9 @@ from typing import Optional
 
 app = FastAPI()
 
-# БЕЗ ЭТОГО БУДЕТ NETWORK ERROR
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Адрес твоего фронта
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
