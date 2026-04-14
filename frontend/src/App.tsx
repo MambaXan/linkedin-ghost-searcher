@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const response = await fetch(
-      "https://linkedin-ghost-searcher-backend.onrender.com/generate-query",
+      "https://linkedin-ghost-searcher.onrender.com/generate-query",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
