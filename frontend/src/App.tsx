@@ -18,13 +18,21 @@ interface Template {
   text: string;
 }
 
+interface SearchResult {
+  raw_query: string;
+  google_url: string;
+}
+
 const App: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     job_title: "",
     company: "",
     location: "",
   });
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isSmartMode, setIsSmartMode] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
@@ -32,6 +40,27 @@ const App: React.FC = () => {
       .then((res) => res.json())
       .then((data: Template[]) => setTemplates(data));
   }, []);
+
+  const handleAiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch(
+        "https://linkedin-ghost-searcher.onrender.com/ai-generate-query",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_input: aiPrompt }),
+        }
+      );
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      console.error("AI Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +72,7 @@ const App: React.FC = () => {
         body: JSON.stringify(formData),
       }
     );
-    const data: SearchResult = await response.json();
+    const data = await response.json();
     setResult(data);
   };
 
@@ -53,33 +82,62 @@ const App: React.FC = () => {
         <header>
           <h1>Ghost Searcher TS 👻</h1>
           <p>Bypass limits with Google Dorking</p>
+          <div className="mode-toggle">
+            <button
+              onClick={() => setIsSmartMode(false)}
+              className={!isSmartMode ? "active" : ""}
+            >
+              Classic
+            </button>
+            <button
+              onClick={() => setIsSmartMode(true)}
+              className={isSmartMode ? "active" : ""}
+            >
+              AI Strategist ✨
+            </button>
+          </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="search-form">
-          <input
-            type="text"
-            placeholder="Job Title"
-            onChange={(e) =>
-              setFormData({ ...formData, job_title: e.target.value })
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder="Company"
-            onChange={(e) =>
-              setFormData({ ...formData, company: e.target.value })
-            }
-          />
-          <input
-            type="text"
-            placeholder="Location"
-            onChange={(e) =>
-              setFormData({ ...formData, location: e.target.value })
-            }
-          />
-          <button type="submit">Generate URL</button>
-        </form>
+        {!isSmartMode ? (
+          <form onSubmit={handleSubmit} className="search-form">
+            <input
+              type="text"
+              placeholder="Job Title"
+              onChange={(e) =>
+                setFormData({ ...formData, job_title: e.target.value })
+              }
+              required
+            />
+            <input
+              type="text"
+              placeholder="Company"
+              onChange={(e) =>
+                setFormData({ ...formData, company: e.target.value })
+              }
+            />
+            <input
+              type="text"
+              placeholder="Location"
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
+            />
+            <button type="submit">Generate URL</button>
+          </form>
+        ) : (
+          <form onSubmit={handleAiSubmit} className="search-form">
+            <input
+              type="text"
+              placeholder="e.g. Find recruiters at Google who hire React devs"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              required
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? "Thinking..." : "Ask AI Strategist"}
+            </button>
+          </form>
+        )}
 
         {result && (
           <div className="result-card">
