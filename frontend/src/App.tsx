@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
-    fetch("https://linkedin-ghost-searcher-backend.onrender.com/templates")
+    fetch("https://linkedin-ghost-searcher.onrender.com/templates")
       .then((res) => res.json())
       .then((data: Template[]) => setTemplates(data));
   }, []);
