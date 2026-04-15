@@ -118,6 +118,7 @@
     }
   
     .open-btn {
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -189,3 +190,69 @@
       }
     }
   }
+  // Переключатель режимов
+.mode-toggle {
+  display: flex;
+  background: #eeebe3;
+  padding: 4px;
+  border-radius: 12px;
+  margin-top: 1.5rem;
+  width: fit-content;
+
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+    width: auto; // Чтобы не растягивался как основные кнопки
+    margin-top: 0;
+
+    &.active {
+      background: #fff;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    &:hover:not(.active) {
+      color: #1a1a1a;
+    }
+  }
+}
+
+// Фикс курсора и стили кнопки результата
+.open-btn {
+  cursor: pointer !important;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: #f5f4f0;
+  }
+}
+
+// Анимация загрузки для кнопки
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #444 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mode-toggle {
+    background: #1c1c1c;
+    button {
+      color: #888;
+      &.active {
+        background: #2e2e2e;
+        color: #f0efe9;
+      }
+    }
+  }
+}
