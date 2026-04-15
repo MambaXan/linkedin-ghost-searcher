@@ -18,11 +18,6 @@ interface Template {
   text: string;
 }
 
-interface SearchResult {
-  raw_query: string;
-  google_url: string;
-}
-
 const App: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     job_title: "",
@@ -35,24 +30,25 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
 
+  const API_BASE = "https://linkedin-ghost-searcher.onrender.com";
+
   useEffect(() => {
-    fetch("https://linkedin-ghost-searcher.onrender.com/templates")
+    fetch(`${API_BASE}/templates`)
       .then((res) => res.json())
-      .then((data: Template[]) => setTemplates(data));
+      .then((data: Template[]) => setTemplates(data))
+      .catch((err) => console.error("Fetch error:", err));
   }, []);
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setResult(null);
     try {
-      const response = await fetch(
-        "https://linkedin-ghost-searcher.onrender.com/ai-generate-query",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_input: aiPrompt }),
-        }
-      );
+      const response = await fetch(`${API_BASE}/ai-generate-query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_input: aiPrompt }),
+      });
       const data = await response.json();
       setResult(data);
     } catch (error) {
@@ -64,15 +60,12 @@ const App: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const response = await fetch(
-      "https://linkedin-ghost-searcher.onrender.com/generate-query",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      }
-    );
-    const data = await response.json();
+    const response = await fetch(`${API_BASE}/generate-query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    const data: SearchResult = await response.json();
     setResult(data);
   };
 
@@ -82,15 +75,24 @@ const App: React.FC = () => {
         <header>
           <h1>Ghost Searcher TS 👻</h1>
           <p>Bypass limits with Google Dorking</p>
+
           <div className="mode-toggle">
             <button
-              onClick={() => setIsSmartMode(false)}
+              type="button"
+              onClick={() => {
+                setIsSmartMode(false);
+                setResult(null);
+              }}
               className={!isSmartMode ? "active" : ""}
             >
               Classic
             </button>
             <button
-              onClick={() => setIsSmartMode(true)}
+              type="button"
+              onClick={() => {
+                setIsSmartMode(true);
+                setResult(null);
+              }}
               className={isSmartMode ? "active" : ""}
             >
               AI Strategist ✨
@@ -128,7 +130,7 @@ const App: React.FC = () => {
           <form onSubmit={handleAiSubmit} className="search-form">
             <input
               type="text"
-              placeholder="e.g. Find recruiters at Google who hire React devs"
+              placeholder="e.g. Find recruiters at Google in London"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               required
@@ -139,7 +141,7 @@ const App: React.FC = () => {
           </form>
         )}
 
-        {result && (
+        {result && result.raw_query && (
           <div className="result-card">
             <code>{result.raw_query}</code>
             <a
