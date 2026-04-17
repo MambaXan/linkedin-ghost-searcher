@@ -20,13 +20,16 @@ app.add_middleware(
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+
 class SearchQuery(BaseModel):
     job_title: str
     company: Optional[str] = ""
     location: Optional[str] = ""
 
+
 class AiRequest(BaseModel):
     user_input: str
+
 
 @app.get("/templates")
 async def get_templates():
@@ -36,6 +39,7 @@ async def get_templates():
         {"id": 2, "title": "Coffee Chat",
             "text": "Hi [Name], I'm a student at UniME. Can I ask 2 questions?"}
     ]
+
 
 @app.post("/generate-query")
 async def generate_query(data: SearchQuery):
@@ -49,11 +53,19 @@ async def generate_query(data: SearchQuery):
     url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
     return {"raw_query": dork, "google_url": url}
 
+
 @app.post("/ai-generate-query")
 async def ai_generate_query(data: AiRequest):
-    prompt_path = os.path.join("agents", "strategist.md")
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        system_prompt = f.read()
+    system_prompt = "You are a LinkedIn search expert. Return only a Google Dork query."
+
+    try:
+        prompt_path = os.path.join(os.path.dirname(
+            __file__), "agents", "strategist.md")
+        if os.path.exists(prompt_path):
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                system_prompt = f.read()
+    except Exception:
+        pass
 
     completion = client.chat.completions.create(
         model="llama3-8b-8192",
@@ -62,9 +74,9 @@ async def ai_generate_query(data: AiRequest):
             {"role": "user", "content": data.user_input}
         ]
     )
-    
+
     dork = completion.choices[0].message.content.strip()
     dork = dork.replace('"', '').replace('`', '')
-    
+
     url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
     return {"raw_query": dork, "google_url": url}
