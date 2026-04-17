@@ -44,11 +44,14 @@ const App: React.FC = () => {
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch(`${API_BASE}/ai-generate-query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_input: aiPrompt }),
-      });
+      const response = await fetch(
+        "https://linkedin-ghost-searcher.onrender.com/ai-generate-query",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_input: aiPrompt }),
+        }
+      );
       const data = await response.json();
       setResult(data);
     } catch (error) {

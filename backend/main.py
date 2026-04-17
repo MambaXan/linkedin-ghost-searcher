@@ -6,9 +6,16 @@ from typing import Optional
 from groq import Groq
 from dotenv import load_dotenv
 
-load_dotenv()
+import logging
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +36,16 @@ class SearchQuery(BaseModel):
 
 class AiRequest(BaseModel):
     user_input: str
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal Server Error", "detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 
 @app.get("/templates")
