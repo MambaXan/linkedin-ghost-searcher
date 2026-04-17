@@ -56,16 +56,17 @@ async def generate_query(data: SearchQuery):
 
 @app.post("/ai-generate-query")
 async def ai_generate_query(data: AiRequest):
-    system_prompt = "You are a LinkedIn search expert. Return only a Google Dork query."
+    system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
 
     try:
-        prompt_path = os.path.join(os.path.dirname(
-            __file__), "agents", "strategist.md")
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        prompt_path = os.path.join(base_path, "agents", "strategist.md")
+
         if os.path.exists(prompt_path):
             with open(prompt_path, "r", encoding="utf-8") as f:
                 system_prompt = f.read()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"File read error: {e}")
 
     completion = client.chat.completions.create(
         model="llama3-8b-8192",
