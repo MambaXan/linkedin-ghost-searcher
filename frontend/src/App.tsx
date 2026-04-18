@@ -94,6 +94,7 @@ const App: React.FC = () => {
               onClick={() => {
                 setIsSmartMode(false);
                 setResult(null);
+                setGeneratedUrl("");
               }}
               className={!isSmartMode ? "active" : ""}
             >
@@ -104,6 +105,7 @@ const App: React.FC = () => {
               onClick={() => {
                 setIsSmartMode(true);
                 setResult(null);
+                setGeneratedUrl("");
               }}
               className={isSmartMode ? "active" : ""}
             >
@@ -153,11 +155,13 @@ const App: React.FC = () => {
           </form>
         )}
 
-        {result && result.raw_query && (
+        {(result || generatedUrl) && (
           <div className="result-card">
-            <code>{result.raw_query}</code>
+            <code>
+              {isSmartMode ? "AI Generated Query" : result?.raw_query}
+            </code>
             <a
-              href={result.google_url}
+              href={isSmartMode ? generatedUrl : result?.google_url}
               target="_blank"
               rel="noreferrer"
               className="open-btn"
