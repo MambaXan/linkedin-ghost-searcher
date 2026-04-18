@@ -11,7 +11,10 @@ LinkedIn restricts how many profiles free-tier users can view. Ghost Searcher wo
 ---
 
 ## Main page
-![Main page](./images/main-page.png)
+![Main page](./images/search-page.png)
+
+## AI Search
+![AI Agent](./images/ai-strategist.png)
 
 ## Features
 
