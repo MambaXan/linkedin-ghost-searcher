@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [generatedUrl, setGeneratedUrl] = useState<string>("");
 
   const API_BASE = "https://linkedin-ghost-searcher.onrender.com";
 
@@ -42,7 +43,6 @@ const App: React.FC = () => {
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setResult(null);
     try {
       const response = await fetch(
         "https://linkedin-ghost-searcher.onrender.com/ai-generate-query",
@@ -52,10 +52,19 @@ const App: React.FC = () => {
           body: JSON.stringify({ user_input: aiPrompt }),
         }
       );
+
       const data = await response.json();
-      setResult(data);
+
+      if (response.ok) {
+        setGeneratedUrl(data.google_url);
+        console.log("Success:", data);
+      } else {
+        console.error("Server Error:", data.detail);
+        alert("Ошибка сервера: " + (data.detail || "Неизвестная ошибка"));
+      }
     } catch (error) {
-      console.error("AI Error:", error);
+      console.error("Network Error:", error);
+      alert("Ошибка сети. Проверь интернет или статус сервера.");
     } finally {
       setLoading(false);
     }

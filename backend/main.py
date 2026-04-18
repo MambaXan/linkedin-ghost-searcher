@@ -1,10 +1,11 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from groq import Groq
 from dotenv import load_dotenv
+from http import htt
 
 import logging
 from fastapi import FastAPI, Request
@@ -76,25 +77,31 @@ async def ai_generate_query(data: AiRequest):
     system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
 
     try:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        prompt_path = os.path.join(base_path, "agents", "strategist.md")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        prompt_path = os.path.join(base_dir, "agents", "strategist.md")
 
         if os.path.exists(prompt_path):
             with open(prompt_path, "r", encoding="utf-8") as f:
                 system_prompt = f.read()
+        else:
+            print(f"DEBUG: File not found at {prompt_path}")
     except Exception as e:
-        print(f"File read error: {e}")
+        print(f"DEBUG: Error reading file: {e}")
 
-    completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": data.user_input}
-        ]
-    )
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": data.user_input}
+            ]
+        )
 
-    dork = completion.choices[0].message.content.strip()
-    dork = dork.replace('"', '').replace('`', '')
+        dork = completion.choices[0].message.content.strip()
+        dork = dork.replace('"', '').replace('`', '')
 
-    url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
-    return {"raw_query": dork, "google_url": url}
+        url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+        return {"raw_query": dork, "google_url": url}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
