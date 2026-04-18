@@ -1,22 +1,19 @@
 import os
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
-from groq import Groq
-from dotenv import load_dotenv
-from http import htt
-
 import logging
-from fastapi import FastAPI, Request
+from typing import Optional
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
-
+app = FastAPI(title="LinkedIn Ghost Searcher API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +23,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+api_key = os.getenv("GROQ_API_KEY")
+if not api_key:
+    logger.error("GROQ_API_KEY is not set in environment variables!")
+client = Groq(api_key=api_key)
 
 
 class SearchQuery(BaseModel):
@@ -68,25 +68,25 @@ async def generate_query(data: SearchQuery):
         dork += f' "{data.location}"'
     dork += ' -intitle:"profiles" -inurl:"dir/"'
 
-    url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
-    return {"raw_query": dork, "google_url": url}
+    return {
+        "raw_query": dork,
+        "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+    }
 
 
 @app.post("/ai-generate-query")
 async def ai_generate_query(data: AiRequest):
     system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
 
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        prompt_path = os.path.join(base_dir, "agents", "strategist.md")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    prompt_path = os.path.join(base_dir, "agents", "strategist.md")
 
-        if os.path.exists(prompt_path):
+    if os.path.exists(prompt_path):
+        try:
             with open(prompt_path, "r", encoding="utf-8") as f:
                 system_prompt = f.read()
-        else:
-            print(f"DEBUG: File not found at {prompt_path}")
-    except Exception as e:
-        print(f"DEBUG: Error reading file: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to read strategist.md: {e}")
 
     try:
         completion = client.chat.completions.create(
@@ -97,11 +97,12 @@ async def ai_generate_query(data: AiRequest):
             ]
         )
 
-        dork = completion.choices[0].message.content.strip()
-        dork = dork.replace('"', '').replace('`', '')
-
-        url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
-        return {"raw_query": dork, "google_url": url}
-
+        dork = completion.choices[0].message.content.strip().replace(
+            '"', '').replace('`', '')
+        return {
+            "raw_query": dork,
+            "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+        }
     except Exception as e:
+        logger.error(f"Groq API error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
