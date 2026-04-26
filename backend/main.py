@@ -1,12 +1,22 @@
 import os
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
+import csv
+import io
+from fastapi.responses import StreamingResponse
+
+
+class HistoryItem(BaseModel):
+    query: str
+    url: str
+    date: str
+
 
 load_dotenv()
 
@@ -106,3 +116,28 @@ async def ai_generate_query(data: AiRequest):
     except Exception as e:
         logger.error(f"Groq API error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/export-csv")
+async def export_csv(history: List[HistoryItem]):
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["query", "url", "date"])
+    writer.writeheader()
+
+    for item in history:
+        writer.writerow({
+            "query": item.query,
+            "url": item.url,
+            "date": item.date
+        })
+
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=linkedin_leads.csv",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )
