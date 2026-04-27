@@ -147,6 +147,11 @@ const App: React.FC = () => {
     setCurrentRawQuery("");
   };
 
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem("search_history");
+  };
+
   return (
     <div className="app-container">
       <div className="content-wrapper">
@@ -271,6 +276,9 @@ const App: React.FC = () => {
               <h3>Recent Searches</h3>
               <button onClick={handleExport} className="export-btn">
                 Download CSV ↓
+              </button>
+              <button onClick={clearHistory} className="clear-btn">
+                Clear All
               </button>
             </div>
             <div className="history-grid">
