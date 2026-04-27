@@ -233,7 +233,6 @@ const App: React.FC = () => {
           </form>
         )}
 
-        {/* СЕКЦИЯ РЕЗУЛЬТАТА */}
         <div className="result-area" style={{ marginTop: "20px" }}>
           {loading && (
             <span className="thinking-text">
@@ -258,7 +257,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* ИСТОРИЯ */}
         {history.length > 0 && (
           <div className="history-section">
             <div
