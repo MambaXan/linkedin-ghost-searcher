@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
 import "./App.scss";
 
 interface FormData {
@@ -51,11 +52,41 @@ const App: React.FC = () => {
   const [currentRawQuery, setCurrentRawQuery] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("search_history");
     if (saved) setHistory(JSON.parse(saved));
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) alert(error.message);
+  };
 
   const addToHistory = (query: string, url: string) => {
     const newHistory = [
@@ -73,11 +104,24 @@ const App: React.FC = () => {
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      alert("Please login to use AI Strategist!");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/ai-generate-query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ user_input: aiPrompt }),
       });
       const data = await response.json();
@@ -154,6 +198,24 @@ const App: React.FC = () => {
 
   return (
     <div className="app-container">
+      <nav className="user-nav">
+        <div className="logo">Ghost 👻</div>
+        <div className="user-actions">
+          {user ? (
+            <div className="profile-info">
+              <span className="badge">Free Plan</span>
+              <button onClick={handleLogout} className="text-btn">
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleLogin} className="login-btn">
+              Sign In
+            </button>
+          )}
+        </div>
+      </nav>
+
       <div className="content-wrapper">
         <header>
           <h1>Ghost Searcher PRO 👻</h1>
@@ -261,6 +323,16 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+
+        {history.length >= 3 && !user && (
+          <div className="upgrade-banner">
+            <p>
+              You've reached your free history limit. <strong>Sign in</strong>{" "}
+              to save more.
+            </p>
+            <button onClick={handleLogin}>Unlock History</button>
+          </div>
+        )}
 
         {history.length > 0 && (
           <div className="history-section">

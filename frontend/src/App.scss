@@ -438,3 +438,98 @@ header {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
   }
 }
+
+.user-nav {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+
+  .logo {
+    font-weight: 700;
+    font-size: 1.2rem;
+    opacity: 0.8;
+  }
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+
+  .badge {
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+}
+
+.login-btn {
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s;
+  &:hover {
+    background: #333;
+  }
+}
+
+.upgrade-banner {
+  background: linear-gradient(90deg, #007bff, #6610f2);
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 20px 0;
+  animation: slideUp 0.5s ease;
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  button {
+    background: white;
+    color: #007bff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.text-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.85rem;
+  &:hover {
+    color: #dc3545;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .login-btn {
+    background: #f0efe9;
+    color: #111;
+  }
+  .user-nav .logo {
+    color: #fff;
+  }
+}

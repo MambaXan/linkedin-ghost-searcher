@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import Optional, List
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -10,6 +10,32 @@ from dotenv import load_dotenv
 import csv
 import io
 from fastapi.responses import StreamingResponse
+from jose import jwt
+
+load_dotenv()
+
+SUPABASE_JWT_SECRET = os.getenv(
+    "SUPABASE_JWT_SECRET")
+
+
+def get_current_user(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(
+            status_code=401, detail="Authorization header missing")
+
+    try:
+        token = authorization.split(" ")[1]
+
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False}
+        )
+        return payload
+    except Exception as e:
+        print(f"Auth error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 class HistoryItem(BaseModel):
@@ -17,8 +43,6 @@ class HistoryItem(BaseModel):
     url: str
     date: str
 
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,9 +109,14 @@ async def generate_query(data: SearchQuery):
 
 
 @app.post("/ai-generate-query")
-async def ai_generate_query(data: AiRequest):
-    system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
+async def ai_generate_query(
+    data: AiRequest,
+    user: dict = Depends(get_current_user)
+):
+    user_id = user.get("sub")
+    logger.info(f"User {user_id} is generating an AI query")
 
+    system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
     base_dir = os.path.dirname(os.path.abspath(__file__))
     prompt_path = os.path.join(base_dir, "agents", "strategist.md")
 
@@ -109,13 +138,16 @@ async def ai_generate_query(data: AiRequest):
 
         dork = completion.choices[0].message.content.strip().replace(
             '"', '').replace('`', '')
+
         return {
             "raw_query": dork,
-            "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+            "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
+            "status": "success"
         }
+
     except Exception as e:
-        logger.error(f"Groq API error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Groq API error for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="AI generation failed")
 
 
 @app.post("/export-csv")
