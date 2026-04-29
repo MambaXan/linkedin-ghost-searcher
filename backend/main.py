@@ -38,22 +38,21 @@ def get_current_user(authorization: str = Header(None)):
     try:
         token = authorization.split(" ")[1]
 
-        # PyJWT декодирует так:
+        # В PyJWT мы ПРИНУДИТЕЛЬНО указываем алгоритм
         payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
-            options={"verify_aud": False}
+            options={
+                "verify_aud": False,
+                "verify_signature": True
+            }
         )
         return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        print(f"JWT Error: {e}")
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
     except Exception as e:
-        print(f"General Auth Error: {e}")
-        raise HTTPException(status_code=401, detail="Auth failed")
+        # Это выведет реальную причину в консоль
+        print(f"!!! JWT DEBUG ERROR: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 class HistoryItem(BaseModel):
