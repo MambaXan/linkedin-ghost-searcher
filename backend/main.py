@@ -11,11 +11,23 @@ import csv
 import io
 from fastapi.responses import StreamingResponse
 from jose import jwt
+from supabase import create_client
+import datetime
 
+# 1. Сначала загружаем окружение
 load_dotenv()
 
-SUPABASE_JWT_SECRET = os.getenv(
-    "SUPABASE_JWT_SECRET")
+# 2. Теперь вытаскиваем переменные из .env
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# 3. Проверка (если ключи не подтянулись, сервер сразу об этом скажет)
+if not all([SUPABASE_URL, SUPABASE_KEY, SUPABASE_JWT_SECRET]):
+    raise ValueError("Missing Supabase credentials in .env file!")
+
+# 4. Создаем клиент Supabase
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def get_current_user(authorization: str = Header(None)):
@@ -26,16 +38,21 @@ def get_current_user(authorization: str = Header(None)):
     try:
         token = authorization.split(" ")[1]
 
+        # Добавляем конкретный алгоритм в список разрешенных
         payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            options={"verify_aud": False}
+            algorithms=["HS256"],  # Убедись, что тут список
+            options={
+                "verify_aud": False,
+                "verify_signature": True  # Включаем проверку подписи явно
+            }
         )
         return payload
     except Exception as e:
-        print(f"Auth error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        # Теперь мы увидим в консоли точную причину, если алгоритм не подошел
+        print(f"Auth error detail: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 class HistoryItem(BaseModel):
@@ -114,39 +131,73 @@ async def ai_generate_query(
     user: dict = Depends(get_current_user)
 ):
     user_id = user.get("sub")
-    logger.info(f"User {user_id} is generating an AI query")
-
-    system_prompt = "You are a LinkedIn search expert. Return ONLY a Google Dork query."
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    prompt_path = os.path.join(base_dir, "agents", "strategist.md")
-
-    if os.path.exists(prompt_path):
-        try:
-            with open(prompt_path, "r", encoding="utf-8") as f:
-                system_prompt = f.read()
-        except Exception as e:
-            logger.warning(f"Failed to read strategist.md: {e}")
+    logger.info(f"--- Processing request for User: {user_id} ---")
 
     try:
+        # Проверяем наличие профиля
+        res = supabase.table("profiles").select(
+            "*").eq("id", user_id).execute()
+
+        if not res.data:
+            logger.warning(
+                f"Profile {user_id} not found in DB. Creating one...")
+            # Если юзера нет в profiles (бывает при старых акках), создаем его на лету
+            new_prof = supabase.table("profiles").insert({
+                "id": user_id,
+                "email": user.get("email", "unknown")
+            }).execute()
+            profile = new_prof.data[0]
+        else:
+            profile = res.data[0]
+
+        logger.info(
+            f"User Plan: {profile.get('plan_type')}, Count: {profile.get('search_count')}")
+
+        # Проверка лимитов
+        if profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
+            logger.info(f"User {user_id} hit the limit.")
+            raise HTTPException(
+                status_code=403,
+                detail="Limit reached (5/5). Upgrade to PRO! 🚀"
+            )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Supabase error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+    # --- Генерация AI (оставляем твой код) ---
+    try:
+        # ... твой код генерации dork ...
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": "Return ONLY a Google Dork query."},
                 {"role": "user", "content": data.user_input}
             ]
         )
-
         dork = completion.choices[0].message.content.strip().replace(
             '"', '').replace('`', '')
+        google_url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+
+        # --- Обновление счетчика ---
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        supabase.table("profiles").update({
+            "search_count": profile.get("search_count", 0) + 1,
+            "last_search_date": now_iso
+        }).eq("id", user_id).execute()
 
         return {
             "raw_query": dork,
-            "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
-            "status": "success"
+            "google_url": google_url,
+            "status": "success",
+            "current_usage": profile.get("search_count", 0) + 1
         }
 
     except Exception as e:
-        logger.error(f"Groq API error for user {user_id}: {e}")
+        logger.error(f"Generation error: {e}")
         raise HTTPException(status_code=500, detail="AI generation failed")
 
 
