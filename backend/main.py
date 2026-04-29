@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 import csv
 import io
 from fastapi.responses import StreamingResponse
-from jose import jwt
 from supabase import create_client
 import datetime
+import jwt
 
 # 1. Сначала загружаем окружение
 load_dotenv()
@@ -38,21 +38,22 @@ def get_current_user(authorization: str = Header(None)):
     try:
         token = authorization.split(" ")[1]
 
-        # Добавляем конкретный алгоритм в список разрешенных
+        # PyJWT декодирует так:
         payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],  # Убедись, что тут список
-            options={
-                "verify_aud": False,
-                "verify_signature": True  # Включаем проверку подписи явно
-            }
+            algorithms=["HS256"],
+            options={"verify_aud": False}
         )
         return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        print(f"JWT Error: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
     except Exception as e:
-        # Теперь мы увидим в консоли точную причину, если алгоритм не подошел
-        print(f"Auth error detail: {str(e)}")
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+        print(f"General Auth Error: {e}")
+        raise HTTPException(status_code=401, detail="Auth failed")
 
 
 class HistoryItem(BaseModel):
