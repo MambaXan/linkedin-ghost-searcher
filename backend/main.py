@@ -14,19 +14,15 @@ from supabase import create_client
 import datetime
 import jwt
 
-# 1. Сначала загружаем окружение
 load_dotenv()
 
-# 2. Теперь вытаскиваем переменные из .env
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# 3. Проверка (если ключи не подтянулись, сервер сразу об этом скажет)
 if not all([SUPABASE_URL, SUPABASE_KEY, SUPABASE_JWT_SECRET]):
     raise ValueError("Missing Supabase credentials in .env file!")
 
-# 4. Создаем клиент Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -36,22 +32,24 @@ def get_current_user(authorization: str = Header(None)):
             status_code=401, detail="Authorization header missing")
 
     try:
+        # Убираем "Bearer "
         token = authorization.split(" ")[1]
-
-        # В PyJWT мы ПРИНУДИТЕЛЬНО указываем алгоритм
+        
+        # ВАЖНО: используем именно jwt.decode из PyJWT
+        # Мы явно говорим: "Бро, HS256 — это норм, пропускай"
         payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
+            algorithms=["HS256"],  # Явное разрешение алгоритма
             options={
-                "verify_aud": False,
+                "verify_aud": False,  # Supabase часто шлет 'authenticated' вместо URL
                 "verify_signature": True
             }
         )
         return payload
     except Exception as e:
-        # Это выведет реальную причину в консоль
-        print(f"!!! JWT DEBUG ERROR: {str(e)}")
+        # Если упадет, мы увидим точную причину в логах
+        print(f"!!! CRITICAL AUTH ERROR: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
@@ -134,14 +132,12 @@ async def ai_generate_query(
     logger.info(f"--- Processing request for User: {user_id} ---")
 
     try:
-        # Проверяем наличие профиля
         res = supabase.table("profiles").select(
             "*").eq("id", user_id).execute()
 
         if not res.data:
             logger.warning(
                 f"Profile {user_id} not found in DB. Creating one...")
-            # Если юзера нет в profiles (бывает при старых акках), создаем его на лету
             new_prof = supabase.table("profiles").insert({
                 "id": user_id,
                 "email": user.get("email", "unknown")
@@ -153,7 +149,6 @@ async def ai_generate_query(
         logger.info(
             f"User Plan: {profile.get('plan_type')}, Count: {profile.get('search_count')}")
 
-        # Проверка лимитов
         if profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
             logger.info(f"User {user_id} hit the limit.")
             raise HTTPException(
@@ -168,9 +163,7 @@ async def ai_generate_query(
         raise HTTPException(
             status_code=500, detail=f"Database error: {str(e)}")
 
-    # --- Генерация AI (оставляем твой код) ---
     try:
-        # ... твой код генерации dork ...
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -182,7 +175,6 @@ async def ai_generate_query(
             '"', '').replace('`', '')
         google_url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
 
-        # --- Обновление счетчика ---
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         supabase.table("profiles").update({
             "search_count": profile.get("search_count", 0) + 1,

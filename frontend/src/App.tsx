@@ -254,7 +254,6 @@ const App: React.FC = () => {
       } = await supabase.auth.getSession();
       if (session) {
         try {
-          // Заменяем .table на .from
           const { data, error } = await supabase
             .from("profiles")
             .select("search_count")
@@ -371,12 +370,10 @@ const App: React.FC = () => {
         setCurrentRawQuery(aiPrompt);
         addToHistory(aiPrompt, data.google_url);
 
-        // ВОТ ЭТО ДОБАВЬ:
         if (data.current_usage !== undefined) {
           setUsage(data.current_usage);
         }
       } else {
-        // Если лимит превышен (403), бэкенд выкинет ошибку тут
         alert(data.detail || "Server error");
       }
     } catch {
