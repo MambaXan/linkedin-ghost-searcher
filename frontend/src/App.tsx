@@ -8,6 +8,7 @@ interface ClassicFormData {
   job_title: string;
   company: string;
   location: string;
+  format: string;
 }
 
 interface SearchResult {
@@ -235,6 +236,7 @@ const App: React.FC = () => {
     job_title: "",
     company: "",
     location: "",
+    format: "link",
   });
   const [aiPrompt, setAiPrompt] = useState("");
   const [isSmartMode, setIsSmartMode] = useState(false);
@@ -345,6 +347,11 @@ const App: React.FC = () => {
 
   const handleClassicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.format === "csv") {
+      alert("Экспорт в CSV доступен только в режиме ИИ Стратег!");
+      return;
+    }
+
     if (!session) {
       setShowModal(true);
       return;
@@ -616,10 +623,16 @@ const App: React.FC = () => {
             />
             <button
               type="submit"
-              className="btn btn--primary btn--full"
-              disabled={loading}
+              className={`btn btn--primary btn--full ${
+                loading || usage >= 5 ? "btn--disabled" : ""
+              }`}
+              disabled={loading || usage >= 5} // Теперь кнопка выключится, если лимит 5/5
             >
-              {loading ? "Generating…" : "Generate Search URL"}
+              {loading
+                ? "Thinking…"
+                : usage >= 5
+                ? "Limit Reached 🚀"
+                : "Generate Search URL"}
             </button>
           </form>
         ) : (
