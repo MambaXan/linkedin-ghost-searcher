@@ -41,19 +41,26 @@ def get_current_user(authorization: str = Header(None)):
 
     try:
         token = authorization.split(" ")[1]
+        
+        # Supabase секрет — это Base64. Нам нужно его декодировать.
+        # Добавляем padding '==', чтобы избежать ошибок декодирования
+        decoded_secret = base64.b64decode(SUPABASE_JWT_SECRET + "==")
 
-        # Этот клиент сам поймет, какой ключ нужен для ES256
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
-
+        # Проверяем токен. 
+        # Мы разрешаем и HS256, и ES256, но проверяем нашим секретом.
         payload = jwt.decode(
             token,
-            signing_key.key,
-            algorithms=["RS256", "ES256", "HS256"],
+            decoded_secret,
+            algorithms=["HS256", "ES256"],
+            options={
+                "verify_aud": True,
+                "verify_signature": True
+            },
             audience="authenticated"
         )
         return payload
     except Exception as e:
-        logger.error(f"!!! JWT VERIFICATION FAILED: {str(e)}")
+        logger.error(f"JWT Auth Error: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
