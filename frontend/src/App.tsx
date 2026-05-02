@@ -60,6 +60,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const [error, setError] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [usage, setUsage] = useState(0);
+  const [session, setSession] = useState<any>(null);
 
   // Close on Escape
   useEffect(() => {
@@ -241,6 +242,7 @@ const App: React.FC = () => {
   const [currentRawQuery, setCurrentRawQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<number>(0);
+  const [session, setSession] = useState<any>(null);
 
   // ── History state ─────────────────────────────────────────────────────────
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -276,14 +278,20 @@ const App: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => setUser(session?.user ?? null));
+    // Получаем сессию при загрузке
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setSession(session);
+    });
+
+    // Слушаем изменения авторизации
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, session) =>
-      setUser(session?.user ?? null)
-    );
+    } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+      setSession(session);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -325,18 +333,33 @@ const App: React.FC = () => {
 
   const handleClassicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!session) {
+      setShowModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/generate-query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(formData), // Убедись, что formData объявлен в стейте!
       });
-      const data: SearchResult = await res.json();
-      setCurrentUrl(data.google_url);
-      setCurrentRawQuery(data.raw_query);
-      addToHistory(formData.job_title, data.google_url);
-    } catch {
+      
+      const data = await res.json();
+      if (res.ok) {
+        setCurrentUrl(data.google_url);
+        setCurrentRawQuery(data.raw_query);
+        
+        // Используй функцию внутри сетера, чтобы избежать багов с очередью обновлений
+        setUsage((prevUsage) => prevUsage + 1); 
+        
+        addToHistory(formData.job_title, data.google_url);
+      }
+    } catch (err) {
       alert("Failed to generate URL. Try again.");
     } finally {
       setLoading(false);
@@ -389,6 +412,37 @@ const App: React.FC = () => {
       alert("Network error.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = async (formData: any) => {
+    // Проверяем, есть ли сессия, прежде чем лезть в access_token
+    if (!session) {
+      console.error("No active session");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/generate-query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Теперь TS найдет session, так как она в области видимости компонента
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.detail || "Error generating query");
+        return;
+      }
+
+      const result = await response.json();
+      // Дальше твоя логика обработки результата...
+    } catch (err) {
+      console.error("Search error:", err);
     }
   };
 

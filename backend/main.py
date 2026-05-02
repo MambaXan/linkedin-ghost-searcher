@@ -116,17 +116,35 @@ async def get_templates():
 
 
 @app.post("/generate-query")
-async def generate_query(data: SearchQuery):
+async def generate_query(
+    data: SearchQuery, 
+    user: dict = Depends(get_current_user) # Теперь только для залогиненных
+):
+    user_id = user.get("sub")
+    
+    # 1. Сначала проверяем лимиты в базе
+    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+    profile = res.data[0] if res.data else None
+
+    if profile and profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
+        raise HTTPException(status_code=403, detail="Limit reached. Upgrade to PRO!")
+
+    # 2. Генерируем запрос
     dork = f'site:linkedin.com/in/ "{data.job_title}"'
-    if data.company:
-        dork += f' "{data.company}"'
-    if data.location:
-        dork += f' "{data.location}"'
+    if data.company: dork += f' "{data.company}"'
+    if data.location: dork += f' "{data.location}"'
     dork += ' -intitle:"profiles" -inurl:"dir/"'
+
+    # 3. ОБЯЗАТЕЛЬНО обновляем счетчик в базе
+    supabase.table("profiles").update({
+        "search_count": profile.get("search_count", 0) + 1,
+        "last_search_date": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }).eq("id", user_id).execute()
 
     return {
         "raw_query": dork,
-        "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+        "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
+        "current_usage": profile.get("search_count", 0) + 1
     }
 
 
@@ -201,25 +219,32 @@ async def ai_generate_query(
 
 
 @app.post("/export-csv")
-async def export_csv(history: List[HistoryItem]):
+async def export_csv(
+    history: List[HistoryItem], 
+    user: dict = Depends(get_current_user) # Проверяем, кто качает
+):
+    user_id = user.get("sub")
+    
+    # Проверяем план пользователя
+    res = supabase.table("profiles").select("plan_type").eq("id", user_id).execute()
+    plan = res.data[0].get("plan_type") if res.data else "free"
+
+    if plan == "free":
+        raise HTTPException(
+            status_code=403, 
+            detail="CSV Export is a PRO feature. Upgrade to unlock! 💎"
+        )
+
+    # Если PRO — генерируем файл
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["query", "url", "date"])
     writer.writeheader()
-
     for item in history:
-        writer.writerow({
-            "query": item.query,
-            "url": item.url,
-            "date": item.date
-        })
+        writer.writerow(item.dict())
 
     output.seek(0)
-
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=linkedin_leads.csv",
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
+        headers={"Content-Disposition": "attachment; filename=leads.csv"}
     )
