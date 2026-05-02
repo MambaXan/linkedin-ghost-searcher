@@ -345,6 +345,13 @@ const App: React.FC = () => {
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Проверка лимита перед запросом
+    if (usage >= 5) {
+      alert("Limit reached. Please upgrade to PRO!");
+      return;
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -352,6 +359,7 @@ const App: React.FC = () => {
       setShowModal(true);
       return;
     }
+
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/ai-generate-query`, {
@@ -369,11 +377,12 @@ const App: React.FC = () => {
         setCurrentUrl(data.google_url);
         setCurrentRawQuery(aiPrompt);
         addToHistory(aiPrompt, data.google_url);
-
+        // Бэкенд возвращает current_usage, обновляем стейт
         if (data.current_usage !== undefined) {
           setUsage(data.current_usage);
         }
       } else {
+        // Если бэкенд вернул 403 (лимит), выводим сообщение
         alert(data.detail || "Server error");
       }
     } catch {
@@ -556,10 +565,16 @@ const App: React.FC = () => {
             />
             <button
               type="submit"
-              className="btn btn--primary btn--full"
-              disabled={loading}
+              className={`btn btn--primary btn--full ${
+                usage >= 5 && isSmartMode ? "btn--disabled" : ""
+              }`}
+              disabled={loading || (usage >= 5 && isSmartMode)}
             >
-              {loading ? "Thinking…" : "Ask AI Strategist"}
+              {loading
+                ? "Thinking…"
+                : usage >= 5 && isSmartMode
+                ? "Limit Reached 🚀"
+                : "Ask AI Strategist"}
             </button>
           </form>
         )}

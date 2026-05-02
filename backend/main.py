@@ -1,20 +1,25 @@
 import os
 import logging
+import base64  # Добавил импорт
+import datetime
+import jwt
+import csv
+import io
 from typing import Optional, List
 from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
-import csv
-import io
-from fastapi.responses import StreamingResponse
 from supabase import create_client
-import datetime
-import jwt
+from jwt import PyJWKClient
 
 load_dotenv()
+
+# Сначала настраиваем логику логирования, чтобы она была доступна везде
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -23,33 +28,32 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not all([SUPABASE_URL, SUPABASE_KEY, SUPABASE_JWT_SECRET]):
     raise ValueError("Missing Supabase credentials in .env file!")
 
+# Инициализация JWKS клиента для работы с ES256/RS256
+JWKS_URL = f"{SUPABASE_URL}/auth/v1/jwks"
+jwks_client = PyJWKClient(JWKS_URL)
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def get_current_user(authorization: str = Header(None)):
     if not authorization:
-        raise HTTPException(
-            status_code=401, detail="Authorization header missing")
+        raise HTTPException(status_code=401, detail="Missing Header")
 
     try:
-        # Убираем "Bearer "
         token = authorization.split(" ")[1]
-        
-        # ВАЖНО: используем именно jwt.decode из PyJWT
-        # Мы явно говорим: "Бро, HS256 — это норм, пропускай"
+
+        # Этот клиент сам поймет, какой ключ нужен для ES256
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+
         payload = jwt.decode(
             token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],  # Явное разрешение алгоритма
-            options={
-                "verify_aud": False,  # Supabase часто шлет 'authenticated' вместо URL
-                "verify_signature": True
-            }
+            signing_key.key,
+            algorithms=["RS256", "ES256", "HS256"],
+            audience="authenticated"
         )
         return payload
     except Exception as e:
-        # Если упадет, мы увидим точную причину в логах
-        print(f"!!! CRITICAL AUTH ERROR: {str(e)}")
+        logger.error(f"!!! JWT VERIFICATION FAILED: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
