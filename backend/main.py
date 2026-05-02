@@ -42,16 +42,17 @@ def get_current_user(authorization: str = Header(None)):
     try:
         token = authorization.split(" ")[1]
         
-        # Supabase секрет — это Base64. Нам нужно его декодировать.
-        # Добавляем padding '==', чтобы избежать ошибок декодирования
+        # 1. Декодируем секрет из Base64 (стандарт Supabase)
+        # Добавляем padding, чтобы не было ошибок длины
         decoded_secret = base64.b64decode(SUPABASE_JWT_SECRET + "==")
 
-        # Проверяем токен. 
-        # Мы разрешаем и HS256, и ES256, но проверяем нашим секретом.
+        # 2. ФИНАЛЬНЫЙ ХАК: 
+        # Мы ПРИНУДИТЕЛЬНО используем HS256, даже если в токене ES256.
+        # Supabase позволяет проверять свои токены обоими способами через бэкенд.
         payload = jwt.decode(
             token,
             decoded_secret,
-            algorithms=["HS256", "ES256"],
+            algorithms=["HS256"], # Оставляем ТОЛЬКО HS256
             options={
                 "verify_aud": True,
                 "verify_signature": True
@@ -60,8 +61,19 @@ def get_current_user(authorization: str = Header(None)):
         )
         return payload
     except Exception as e:
-        logger.error(f"JWT Auth Error: {str(e)}")
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+        # Если не сработало, попробуем БЕЗ декодирования base64 (на случай, если ты вставил уже чистую строку)
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                options={"verify_aud": True, "verify_signature": True},
+                audience="authenticated"
+            )
+            return payload
+        except Exception as second_error:
+            logger.error(f"Auth failed: {str(second_error)}")
+            raise HTTPException(status_code=401, detail="Invalid token signature")
 
 
 class HistoryItem(BaseModel):
