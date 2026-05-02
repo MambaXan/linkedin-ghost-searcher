@@ -35,17 +35,17 @@ jwks_client = PyJWKClient(JWKS_URL)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def get_current_user(authorization: str = Header(None)):def get_current_user(authorization: str = Header(None)):
+def get_current_user(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Header")
 
     try:
         token = authorization.split(" ")[1]
-        
+
         # Мы просим сам Supabase подтвердить, что этот токен валиден
         # Это самый надежный способ, он сам разберется с ES256
         user_response = supabase.auth.get_user(token)
-        
+
         if not user_response.user:
             raise Exception("User not found in Supabase response")
 
