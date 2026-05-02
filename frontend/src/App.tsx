@@ -278,18 +278,18 @@ const App: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    // Получаем сессию при загрузке
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
       setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchUsage(session.user.id); // Загружаем счетчик
     });
 
-    // Слушаем изменения авторизации
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchUsage(session.user.id); // Загружаем счетчик при входе
     });
 
     return () => subscription.unsubscribe();
@@ -331,6 +331,18 @@ const App: React.FC = () => {
     setIsSmartMode(true);
   };
 
+  const fetchUsage = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles") // Проверь название таблицы, где хранится счетчик
+      .select("usage_count") // Проверь название колонки
+      .eq("id", userId)
+      .single();
+
+    if (data && !error) {
+      setUsage(data.usage_count);
+    }
+  };
+
   const handleClassicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) {
@@ -348,15 +360,15 @@ const App: React.FC = () => {
         },
         body: JSON.stringify(formData), // Убедись, что formData объявлен в стейте!
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setCurrentUrl(data.google_url);
         setCurrentRawQuery(data.raw_query);
-        
+
         // Используй функцию внутри сетера, чтобы избежать багов с очередью обновлений
-        setUsage((prevUsage) => prevUsage + 1); 
-        
+        setUsage((prevUsage) => prevUsage + 1);
+
         addToHistory(formData.job_title, data.google_url);
       }
     } catch (err) {
@@ -397,12 +409,15 @@ const App: React.FC = () => {
       const data = await res.json();
 
       if (res.ok) {
-        setCurrentUrl(data.google_url);
-        setCurrentRawQuery(aiPrompt);
-        addToHistory(aiPrompt, data.google_url);
-        // Бэкенд возвращает current_usage, обновляем стейт
-        if (data.current_usage !== undefined) {
-          setUsage(data.current_usage);
+        // 1. Обновляем локально (для скорости)
+        setUsage((prev) => prev + 1);
+
+        // 2. Отправляем в Supabase (чтобы сохранилось после рефреша)
+        if (user) {
+          await supabase
+            .from("profiles")
+            .update({ usage_count: usage + 1 })
+            .eq("id", user.id);
         }
       } else {
         // Если бэкенд вернул 403 (лимит), выводим сообщение
