@@ -35,45 +35,29 @@ jwks_client = PyJWKClient(JWKS_URL)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def get_current_user(authorization: str = Header(None)):
+def get_current_user(authorization: str = Header(None)):def get_current_user(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Header")
 
     try:
         token = authorization.split(" ")[1]
         
-        # 1. Декодируем секрет из Base64 (стандарт Supabase)
-        # Добавляем padding, чтобы не было ошибок длины
-        decoded_secret = base64.b64decode(SUPABASE_JWT_SECRET + "==")
+        # Мы просим сам Supabase подтвердить, что этот токен валиден
+        # Это самый надежный способ, он сам разберется с ES256
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
+            raise Exception("User not found in Supabase response")
 
-        # 2. ФИНАЛЬНЫЙ ХАК: 
-        # Мы ПРИНУДИТЕЛЬНО используем HS256, даже если в токене ES256.
-        # Supabase позволяет проверять свои токены обоими способами через бэкенд.
-        payload = jwt.decode(
-            token,
-            decoded_secret,
-            algorithms=["HS256"], # Оставляем ТОЛЬКО HS256
-            options={
-                "verify_aud": True,
-                "verify_signature": True
-            },
-            audience="authenticated"
-        )
-        return payload
+        # Возвращаем данные пользователя в том же формате, что и раньше
+        # чтобы не переписывать остальной код
+        return {
+            "sub": user_response.user.id,
+            "email": user_response.user.email
+        }
     except Exception as e:
-        # Если не сработало, попробуем БЕЗ декодирования base64 (на случай, если ты вставил уже чистую строку)
-        try:
-            payload = jwt.decode(
-                token,
-                SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
-                options={"verify_aud": True, "verify_signature": True},
-                audience="authenticated"
-            )
-            return payload
-        except Exception as second_error:
-            logger.error(f"Auth failed: {str(second_error)}")
-            raise HTTPException(status_code=401, detail="Invalid token signature")
+        logger.error(f"Supabase Auth Verify Error: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 class HistoryItem(BaseModel):
