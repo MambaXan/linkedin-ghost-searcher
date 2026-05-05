@@ -117,22 +117,25 @@ async def get_templates():
 
 @app.post("/generate-query")
 async def generate_query(
-    data: SearchQuery, 
-    user: dict = Depends(get_current_user) # Теперь только для залогиненных
+    data: SearchQuery,
+    user: dict = Depends(get_current_user)  # Теперь только для залогиненных
 ):
     user_id = user.get("sub")
-    
+
     # 1. Сначала проверяем лимиты в базе
     res = supabase.table("profiles").select("*").eq("id", user_id).execute()
     profile = res.data[0] if res.data else None
 
     if profile and profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
-        raise HTTPException(status_code=403, detail="Limit reached. Upgrade to PRO!")
+        raise HTTPException(
+            status_code=403, detail="Limit reached. Upgrade to PRO!")
 
     # 2. Генерируем запрос
     dork = f'site:linkedin.com/in/ "{data.job_title}"'
-    if data.company: dork += f' "{data.company}"'
-    if data.location: dork += f' "{data.location}"'
+    if data.company:
+        dork += f' "{data.company}"'
+    if data.location:
+        dork += f' "{data.location}"'
     dork += ' -intitle:"profiles" -inurl:"dir/"'
 
     # 3. ОБЯЗАТЕЛЬНО обновляем счетчик в базе
@@ -220,18 +223,19 @@ async def ai_generate_query(
 
 @app.post("/export-csv")
 async def export_csv(
-    history: List[HistoryItem], 
-    user: dict = Depends(get_current_user) # Проверяем, кто качает
+    history: List[HistoryItem],
+    user: dict = Depends(get_current_user)  # Проверяем, кто качает
 ):
     user_id = user.get("sub")
-    
+
     # Проверяем план пользователя
-    res = supabase.table("profiles").select("plan_type").eq("id", user_id).execute()
+    res = supabase.table("profiles").select(
+        "plan_type").eq("id", user_id).execute()
     plan = res.data[0].get("plan_type") if res.data else "free"
 
     if plan == "free":
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="CSV Export is a PRO feature. Upgrade to unlock! 💎"
         )
 
