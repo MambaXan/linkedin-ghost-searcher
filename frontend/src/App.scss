@@ -520,6 +520,9 @@ body {
     border-radius: var(--r-sm); padding: .8rem;
     line-height: 1.7; word-break: break-all;
   }
+  a{
+    padding: 10px;
+  }
 }
 
 // ─── Upgrade banner (anon nudge) ──────────────────────────────────────────────
