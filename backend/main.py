@@ -1,10 +1,290 @@
+# import os
+# import logging
+# import base64  # Добавил импорт
+# import datetime
+# import jwt
+# import csv
+# import io
+# from typing import Optional, List
+# from fastapi import FastAPI, Request, HTTPException, Depends, Header
+# from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.responses import JSONResponse, StreamingResponse
+# from pydantic import BaseModel
+# from groq import Groq
+# from dotenv import load_dotenv
+# from supabase import create_client
+# from jwt import PyJWKClient
+
+# load_dotenv()
+
+# # Сначала настраиваем логику логирования, чтобы она была доступна везде
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+# SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+# SUPABASE_URL = os.getenv("SUPABASE_URL")
+# SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# if not all([SUPABASE_URL, SUPABASE_KEY, SUPABASE_JWT_SECRET]):
+#     raise ValueError("Missing Supabase credentials in .env file!")
+
+# # Инициализация JWKS клиента для работы с ES256/RS256
+# JWKS_URL = f"{SUPABASE_URL}/auth/v1/jwks"
+# jwks_client = PyJWKClient(JWKS_URL)
+
+# supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+# def get_current_user(authorization: str = Header(None)):
+#     if not authorization:
+#         raise HTTPException(status_code=401, detail="Missing Header")
+
+#     try:
+#         token = authorization.split(" ")[1]
+
+#         # Мы просим сам Supabase подтвердить, что этот токен валиден
+#         # Это самый надежный способ, он сам разберется с ES256
+#         user_response = supabase.auth.get_user(token)
+
+#         if not user_response.user:
+#             raise Exception("User not found in Supabase response")
+
+#         # Возвращаем данные пользователя в том же формате, что и раньше
+#         # чтобы не переписывать остальной код
+#         return {
+#             "sub": user_response.user.id,
+#             "email": user_response.user.email
+#         }
+#     except Exception as e:
+#         logger.error(f"Supabase Auth Verify Error: {str(e)}")
+#         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+
+# class HistoryItem(BaseModel):
+#     query: str
+#     url: str
+#     date: str
+
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+# app = FastAPI(title="LinkedIn Ghost Searcher API")
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# api_key = os.getenv("GROQ_API_KEY")
+# if not api_key:
+#     logger.error("GROQ_API_KEY is not set in environment variables!")
+# client = Groq(api_key=api_key)
+
+
+# class SearchQuery(BaseModel):
+#     job_title: str
+#     company: Optional[str] = ""
+#     location: Optional[str] = ""
+
+
+# class AiRequest(BaseModel):
+#     user_input: str
+
+
+# @app.exception_handler(Exception)
+# async def global_exception_handler(request: Request, exc: Exception):
+#     logger.error(f"Global error: {exc}", exc_info=True)
+#     return JSONResponse(
+#         status_code=500,
+#         content={"message": "Internal Server Error", "detail": str(exc)},
+#         headers={"Access-Control-Allow-Origin": "*"}
+#     )
+
+
+# @app.get("/templates")
+# async def get_templates():
+#     return [
+#         {"id": 1, "title": "Connect",
+#             "text": "Hi [Name], saw your profile at [Company]. Would love to connect!"},
+#         {"id": 2, "title": "Coffee Chat",
+#             "text": "Hi [Name], I'm a student at UniME. Can I ask 2 questions?"}
+#     ]
+
+
+# @app.post("/generate-query")
+# async def generate_query(
+#     data: SearchQuery,
+#     user: dict = Depends(get_current_user)  # Теперь только для залогиненных
+# ):
+#     user_id = user.get("sub")
+
+#     # 1. Сначала проверяем лимиты в базе
+#     res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+#     profile = res.data[0] if res.data else None
+
+#     if profile and profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
+#         raise HTTPException(
+#             status_code=403, detail="Limit reached. Upgrade to PRO!")
+
+#     # 2. Генерируем запрос
+#     dork = f'site:linkedin.com/in/ "{data.job_title}"'
+#     if data.company:
+#         dork += f' "{data.company}"'
+#     if data.location:
+#         dork += f' "{data.location}"'
+#     dork += ' -intitle:"profiles" -inurl:"dir/"'
+
+#     # 3. ОБЯЗАТЕЛЬНО обновляем счетчик в базе
+#     supabase.table("profiles").update({
+#         "search_count": profile.get("search_count", 0) + 1,
+#         "last_search_date": datetime.datetime.now(datetime.timezone.utc).isoformat()
+#     }).eq("id", user_id).execute()
+
+#     return {
+#         "raw_query": dork,
+#         "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
+#         "current_usage": profile.get("search_count", 0) + 1
+#     }
+
+
+# @app.post("/ai-generate-query")
+# async def ai_generate_query(
+#     data: AiRequest,
+#     user: dict = Depends(get_current_user)
+# ):
+#     user_id = user.get("sub")
+#     logger.info(f"--- Processing request for User: {user_id} ---")
+
+#     try:
+#         res = supabase.table("profiles").select(
+#             "*").eq("id", user_id).execute()
+
+#         if not res.data:
+#             logger.warning(
+#                 f"Profile {user_id} not found in DB. Creating one...")
+#             new_prof = supabase.table("profiles").insert({
+#                 "id": user_id,
+#                 "email": user.get("email", "unknown")
+#             }).execute()
+#             profile = new_prof.data[0]
+#         else:
+#             profile = res.data[0]
+
+#         logger.info(
+#             f"User Plan: {profile.get('plan_type')}, Count: {profile.get('search_count')}")
+
+#         # 🔒 BLOCK FREE USERS
+#         if profile.get("plan_type") != "pro":
+#             raise HTTPException(
+#                 status_code=403,
+#                 detail="AI Strategist is a PRO feature"
+#             )
+
+#         if profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
+#             logger.info(f"User {user_id} hit the limit.")
+#             raise HTTPException(
+#                 status_code=403,
+#                 detail="Limit reached (5/5). Upgrade to PRO! 🚀"
+#             )
+
+#     except HTTPException as he:
+#         raise he
+#     except Exception as e:
+#         logger.error(f"Supabase error: {e}")
+#         raise HTTPException(
+#             status_code=500, detail=f"Database error: {str(e)}")
+
+#     try:
+#         completion = client.chat.completions.create(
+#             model="llama-3.3-70b-versatile",
+#             messages=[
+#                 {"role": "system", "content": "Return ONLY a Google Dork query."},
+#                 {"role": "user", "content": data.user_input}
+#             ]
+#         )
+#         dork = completion.choices[0].message.content.strip().replace(
+#             '"', '').replace('`', '')
+#         google_url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
+
+#         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+#         supabase.table("profiles").update({
+#             "search_count": profile.get("search_count", 0) + 1,
+#             "last_search_date": now_iso
+#         }).eq("id", user_id).execute()
+
+#         return {
+#             "raw_query": dork,
+#             "google_url": google_url,
+#             "status": "success",
+#             "current_usage": profile.get("search_count", 0) + 1
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Generation error: {e}")
+#         raise HTTPException(status_code=500, detail="AI generation failed")
+
+
+# @app.post("/export-csv")
+# async def export_csv(
+#     history: List[HistoryItem],
+#     user: dict = Depends(get_current_user)  # Проверяем, кто качает
+# ):
+#     user_id = user.get("sub")
+
+#     # Проверяем план пользователя
+#     res = supabase.table("profiles").select(
+#         "plan_type").eq("id", user_id).execute()
+#     plan = res.data[0].get("plan_type") if res.data else "free"
+
+#     if plan == "free":
+#         raise HTTPException(
+#             status_code=403,
+#             detail="CSV Export is a PRO feature. Upgrade to unlock! 💎"
+#         )
+
+#     # Если PRO — генерируем файл
+#     output = io.StringIO()
+#     writer = csv.DictWriter(output, fieldnames=["query", "url", "date"])
+#     writer.writeheader()
+#     for item in history:
+#         writer.writerow(item.dict())
+
+#     output.seek(0)
+#     return StreamingResponse(
+#         iter([output.getvalue()]),
+#         media_type="text/csv",
+#         headers={"Content-Disposition": "attachment; filename=leads.csv"}
+#     )
+
+
+# @app.post("/webhook")
+# async def lemonsqueezy_webhook(request: Request):
+#     payload = await request.json()
+#     event_name = payload.get("meta", {}).get("event_name")
+
+#     # Lemon Squeezy присылает email покупателя здесь
+#     email = payload.get("data", {}).get("attributes", {}).get("user_email")
+
+#     if event_name in ["subscription_created", "order_created"]:
+#         # Ищем по email и ставим PRO
+#         supabase.table("profiles").update({
+#             "plan_type": "pro",
+#             "is_pro": True
+#         }).eq("email", email).execute()
+#         logger.info(f"User {email} upgraded to PRO via webhook")
+
+#     return {"status": "success"}
 import os
 import logging
-import base64  # Добавил импорт
 import datetime
-import jwt
 import csv
 import io
+import hmac
+import hashlib
 from typing import Optional, List
 from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,61 +293,21 @@ from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
 from supabase import create_client
-from jwt import PyJWKClient
 
 load_dotenv()
 
-# Сначала настраиваем логику логирования, чтобы она была доступна везде
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+LEMON_SQUEEZY_SECRET = os.getenv("LEMON_SQUEEZY_SECRET", "")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, SUPABASE_JWT_SECRET]):
     raise ValueError("Missing Supabase credentials in .env file!")
 
-# Инициализация JWKS клиента для работы с ES256/RS256
-JWKS_URL = f"{SUPABASE_URL}/auth/v1/jwks"
-jwks_client = PyJWKClient(JWKS_URL)
-
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
-def get_current_user(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Header")
-
-    try:
-        token = authorization.split(" ")[1]
-
-        # Мы просим сам Supabase подтвердить, что этот токен валиден
-        # Это самый надежный способ, он сам разберется с ES256
-        user_response = supabase.auth.get_user(token)
-
-        if not user_response.user:
-            raise Exception("User not found in Supabase response")
-
-        # Возвращаем данные пользователя в том же формате, что и раньше
-        # чтобы не переписывать остальной код
-        return {
-            "sub": user_response.user.id,
-            "email": user_response.user.email
-        }
-    except Exception as e:
-        logger.error(f"Supabase Auth Verify Error: {str(e)}")
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-
-
-class HistoryItem(BaseModel):
-    query: str
-    url: str
-    date: str
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LinkedIn Ghost Searcher API")
 
@@ -81,56 +321,103 @@ app.add_middleware(
 
 api_key = os.getenv("GROQ_API_KEY")
 if not api_key:
-    logger.error("GROQ_API_KEY is not set in environment variables!")
-client = Groq(api_key=api_key)
+    logger.error("GROQ_API_KEY is not set!")
+groq_client = Groq(api_key=api_key)
 
+
+# ─── Auth ─────────────────────────────────────────────────────────────────────
+
+def get_current_user(authorization: str = Header(None)) -> dict:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    try:
+        token = authorization.split(" ")[1]
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            raise Exception("User not found")
+        return {"sub": user_response.user.id, "email": user_response.user.email}
+    except Exception as e:
+        logger.error(f"Auth error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+# ─── Models ───────────────────────────────────────────────────────────────────
 
 class SearchQuery(BaseModel):
     job_title: str
     company: Optional[str] = ""
     location: Optional[str] = ""
 
-
 class AiRequest(BaseModel):
     user_input: str
 
+class HistoryItem(BaseModel):
+    query: str
+    url: str
+    date: str
+
+
+# ─── Global error handler ─────────────────────────────────────────────────────
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global error: {exc}", exc_info=True)
+    logger.error(f"Unhandled error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"message": "Internal Server Error", "detail": str(exc)},
-        headers={"Access-Control-Allow-Origin": "*"}
+        headers={"Access-Control-Allow-Origin": "*"},
     )
 
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def get_or_create_profile(user_id: str, email: str) -> dict:
+    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+    if res.data:
+        return res.data[0]
+    new_profile = supabase.table("profiles").insert({
+        "id": user_id,
+        "email": email,
+        "search_count": 0,
+        "plan_type": "free",
+        "is_pro": False,
+    }).execute()
+    return new_profile.data[0]
+
+def is_pro_user(profile: dict) -> bool:
+    return profile.get("is_pro", False) or profile.get("plan_type") == "pro"
+
+def check_free_limit(profile: dict) -> bool:
+    if is_pro_user(profile):
+        return False
+    return profile.get("search_count", 0) >= 5
+
+def increment_search_count(user_id: str, current_count: int) -> None:
+    supabase.table("profiles").update({
+        "search_count": current_count + 1,
+        "last_search_date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }).eq("id", user_id).execute()
+
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/templates")
 async def get_templates():
     return [
-        {"id": 1, "title": "Connect",
-            "text": "Hi [Name], saw your profile at [Company]. Would love to connect!"},
-        {"id": 2, "title": "Coffee Chat",
-            "text": "Hi [Name], I'm a student at UniME. Can I ask 2 questions?"}
+        {"id": 1, "title": "Connect", "text": "Hi [Name], saw your profile at [Company]. Would love to connect!"},
+        {"id": 2, "title": "Coffee Chat", "text": "Hi [Name], I'm a student at UniME. Can I ask 2 quick questions?"},
     ]
 
 
 @app.post("/generate-query")
-async def generate_query(
-    data: SearchQuery,
-    user: dict = Depends(get_current_user)  # Теперь только для залогиненных
-):
-    user_id = user.get("sub")
+async def generate_query(data: SearchQuery, user: dict = Depends(get_current_user)):
+    """Classic dorking — free users (up to 5/day) + PRO unlimited."""
+    user_id = user["sub"]
+    profile = get_or_create_profile(user_id, user.get("email", ""))
 
-    # 1. Сначала проверяем лимиты в базе
-    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
-    profile = res.data[0] if res.data else None
+    if check_free_limit(profile):
+        raise HTTPException(status_code=403, detail="Daily limit reached. Upgrade to PRO!")
 
-    if profile and profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
-        raise HTTPException(
-            status_code=403, detail="Limit reached. Upgrade to PRO!")
-
-    # 2. Генерируем запрос
     dork = f'site:linkedin.com/in/ "{data.job_title}"'
     if data.company:
         dork += f' "{data.company}"'
@@ -138,117 +425,118 @@ async def generate_query(
         dork += f' "{data.location}"'
     dork += ' -intitle:"profiles" -inurl:"dir/"'
 
-    # 3. ОБЯЗАТЕЛЬНО обновляем счетчик в базе
-    supabase.table("profiles").update({
-        "search_count": profile.get("search_count", 0) + 1,
-        "last_search_date": datetime.datetime.now(datetime.timezone.utc).isoformat()
-    }).eq("id", user_id).execute()
+    increment_search_count(user_id, profile.get("search_count", 0))
 
     return {
         "raw_query": dork,
         "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
-        "current_usage": profile.get("search_count", 0) + 1
+        "current_usage": profile.get("search_count", 0) + 1,
     }
 
 
 @app.post("/ai-generate-query")
-async def ai_generate_query(
-    data: AiRequest,
-    user: dict = Depends(get_current_user)
-):
-    user_id = user.get("sub")
-    logger.info(f"--- Processing request for User: {user_id} ---")
+async def ai_generate_query(data: AiRequest, user: dict = Depends(get_current_user)):
+    """AI Strategist — PRO only."""
+    user_id = user["sub"]
 
     try:
-        res = supabase.table("profiles").select(
-            "*").eq("id", user_id).execute()
-
-        if not res.data:
-            logger.warning(
-                f"Profile {user_id} not found in DB. Creating one...")
-            new_prof = supabase.table("profiles").insert({
-                "id": user_id,
-                "email": user.get("email", "unknown")
-            }).execute()
-            profile = new_prof.data[0]
-        else:
-            profile = res.data[0]
-
-        logger.info(
-            f"User Plan: {profile.get('plan_type')}, Count: {profile.get('search_count')}")
-
-        if profile.get("plan_type") == "free" and profile.get("search_count", 0) >= 5:
-            logger.info(f"User {user_id} hit the limit.")
-            raise HTTPException(
-                status_code=403,
-                detail="Limit reached (5/5). Upgrade to PRO! 🚀"
-            )
-
-    except HTTPException as he:
-        raise he
+        profile = get_or_create_profile(user_id, user.get("email", ""))
     except Exception as e:
-        logger.error(f"Supabase error: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Database error: {str(e)}")
+        logger.error(f"DB error for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+
+    if not is_pro_user(profile):
+        raise HTTPException(status_code=403, detail="AI Strategist is a PRO feature")
 
     try:
-        completion = client.chat.completions.create(
+        completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Return ONLY a Google Dork query."},
-                {"role": "user", "content": data.user_input}
-            ]
+                {"role": "system", "content": "Return ONLY a Google Dork query for LinkedIn profile search. No explanation, no markdown, no quotes."},
+                {"role": "user", "content": data.user_input},
+            ],
         )
-        dork = completion.choices[0].message.content.strip().replace(
-            '"', '').replace('`', '')
+        dork = completion.choices[0].message.content.strip().replace('"', "").replace("`", "")
         google_url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
 
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        supabase.table("profiles").update({
-            "search_count": profile.get("search_count", 0) + 1,
-            "last_search_date": now_iso
-        }).eq("id", user_id).execute()
+        increment_search_count(user_id, profile.get("search_count", 0))
 
         return {
             "raw_query": dork,
             "google_url": google_url,
             "status": "success",
-            "current_usage": profile.get("search_count", 0) + 1
+            "current_usage": profile.get("search_count", 0) + 1,
         }
-
     except Exception as e:
-        logger.error(f"Generation error: {e}")
-        raise HTTPException(status_code=500, detail="AI generation failed")
+        logger.error(f"AI generation error for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="AI generation failed. Please try again.")
 
 
 @app.post("/export-csv")
-async def export_csv(
-    history: List[HistoryItem],
-    user: dict = Depends(get_current_user)  # Проверяем, кто качает
-):
-    user_id = user.get("sub")
+async def export_csv(history: List[HistoryItem], user: dict = Depends(get_current_user)):
+    """CSV export — PRO only."""
+    user_id = user["sub"]
+    res = supabase.table("profiles").select("plan_type, is_pro").eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if not is_pro_user(res.data[0]):
+        raise HTTPException(status_code=403, detail="CSV Export is a PRO feature")
 
-    # Проверяем план пользователя
-    res = supabase.table("profiles").select(
-        "plan_type").eq("id", user_id).execute()
-    plan = res.data[0].get("plan_type") if res.data else "free"
-
-    if plan == "free":
-        raise HTTPException(
-            status_code=403,
-            detail="CSV Export is a PRO feature. Upgrade to unlock! 💎"
-        )
-
-    # Если PRO — генерируем файл
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["query", "url", "date"])
     writer.writeheader()
     for item in history:
         writer.writerow(item.dict())
-
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=leads.csv"}
+        headers={"Content-Disposition": "attachment; filename=leads.csv"},
     )
+
+
+@app.post("/webhook")
+async def lemonsqueezy_webhook(request: Request):
+    """
+    Lemon Squeezy webhook — upgrades user to PRO on purchase.
+    Verifies HMAC-SHA256 signature via X-Signature header.
+    Set LEMON_SQUEEZY_SECRET in .env — must match the secret in LS dashboard.
+    """
+    raw_body = await request.body()
+
+    if LEMON_SQUEEZY_SECRET:
+        signature = request.headers.get("X-Signature", "")
+        expected = hmac.new(
+            LEMON_SQUEEZY_SECRET.encode("utf-8"),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            logger.warning("Webhook signature mismatch — rejected")
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    event_name = payload.get("meta", {}).get("event_name", "")
+    attributes = payload.get("data", {}).get("attributes", {})
+    email = attributes.get("user_email") or attributes.get("customer_email", "")
+
+    logger.info(f"Webhook: event={event_name}, email={email}")
+
+    if event_name in ("subscription_created", "order_created", "subscription_payment_success"):
+        if not email:
+            logger.warning("Webhook: email missing in payload")
+            return {"status": "skipped", "reason": "no email"}
+        result = supabase.table("profiles").update({
+            "plan_type": "pro",
+            "is_pro": True,
+        }).eq("email", email).execute()
+        if result.data:
+            logger.info(f"Upgraded {email} to PRO")
+        else:
+            logger.warning(f"No profile found for {email}")
+
+    return {"status": "ok"}
