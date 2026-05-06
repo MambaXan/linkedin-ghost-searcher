@@ -1117,20 +1117,51 @@ const LS_CHECKOUT_URL =
   "https://linkedin-ghost-searcher.lemonsqueezy.com/checkout/buy/d77f43c8-0c4d-4774-812e-49e17ec475ae?embed=1";
 
 const DISPOSABLE_DOMAINS = new Set([
-  "tempmail.com", "temp-mail.org", "temp-mail.io", "guerrillamail.com",
-  "mailinator.com", "yopmail.com", "throwam.com", "spam4.me",
-  "trashmail.com", "trashmail.me", "trashmail.net", "10minutemail.com",
-  "fakeinbox.com", "maildrop.cc", "tempr.email", "discard.email",
-  "mailnull.com", "spamgourmet.com", "dispostable.com", "sharklasers.com",
-  "guerrillamail.info", "guerrillamail.biz", "guerrillamail.de",
-  "guerrillamail.net", "guerrillamail.org", "grr.la",
+  "tempmail.com",
+  "temp-mail.org",
+  "temp-mail.io",
+  "guerrillamail.com",
+  "mailinator.com",
+  "yopmail.com",
+  "throwam.com",
+  "spam4.me",
+  "trashmail.com",
+  "trashmail.me",
+  "trashmail.net",
+  "10minutemail.com",
+  "fakeinbox.com",
+  "maildrop.cc",
+  "tempr.email",
+  "discard.email",
+  "mailnull.com",
+  "spamgourmet.com",
+  "dispostable.com",
+  "sharklasers.com",
+  "guerrillamail.info",
+  "guerrillamail.biz",
+  "guerrillamail.de",
+  "guerrillamail.net",
+  "guerrillamail.org",
+  "grr.la",
 ]);
 
 const PRESETS = [
-  { label: "🚀 Tech Founders", query: "Founders or CEO of tech startups with series A funding" },
-  { label: "🔍 Tech Recruiters", query: "Technical Recruiters or Talent Acquisition at top tech companies" },
-  { label: "💻 Senior Devs", query: "Senior Software Engineers with React and Node.js experience" },
-  { label: "🎨 Product Designers", query: "Senior Product Designers with Figma portfolio" },
+  {
+    label: "🚀 Tech Founders",
+    query: "Founders or CEO of tech startups with series A funding",
+  },
+  {
+    label: "🔍 Tech Recruiters",
+    query: "Technical Recruiters or Talent Acquisition at top tech companies",
+  },
+  {
+    label: "💻 Senior Devs",
+    query: "Senior Software Engineers with React and Node.js experience",
+  },
+  {
+    label: "🎨 Product Designers",
+    query: "Senior Product Designers with Figma portfolio",
+  },
 ];
 
 const PRICING_FREE_FEATURES = [
@@ -1151,7 +1182,9 @@ const PRICING_PRO_FEATURES = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getAuthHeader(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) throw new Error("NOT_LOGGED_IN");
   return `Bearer ${session.access_token}`;
 }
@@ -1165,15 +1198,17 @@ function isDisposableEmail(email: string): boolean {
 
 let toastIdCounter = 0;
 
-const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: number) => void }> = ({
-  toasts,
-  onRemove,
-}) => (
+const ToastContainer: React.FC<{
+  toasts: Toast[];
+  onRemove: (id: number) => void;
+}> = ({ toasts, onRemove }) => (
   <div className="toast-container">
     {toasts.map((t) => (
       <div key={t.id} className={`toast toast--${t.type}`}>
         <span>{t.message}</span>
-        <button className="toast__close" onClick={() => onRemove(t.id)}>✕</button>
+        <button className="toast__close" onClick={() => onRemove(t.id)}>
+          ✕
+        </button>
       </div>
     ))}
   </div>
@@ -1187,7 +1222,11 @@ interface AuthModalProps {
   onToast: (message: string, type: Toast["type"]) => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) => {
+const AuthModal: React.FC<AuthModalProps> = ({
+  onClose,
+  onSuccess,
+  onToast,
+}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -1197,14 +1236,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
 
   const switchMode = () => {
     setIsSignUp((v) => !v);
-    setEmail(""); setPassword(""); setError(""); setShowPw(false);
+    setEmail("");
+    setPassword("");
+    setError("");
+    setShowPw(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1212,7 +1256,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
     setError("");
 
     if (isSignUp && isDisposableEmail(email)) {
-      setError("Please use a real email address. Temporary emails are not allowed.");
+      setError(
+        "Please use a real email address. Temporary emails are not allowed."
+      );
       return;
     }
 
@@ -1226,9 +1272,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
         onClose();
       }
     } else {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (err) setError(err.message);
-      else { onSuccess(); onClose(); }
+      else {
+        onSuccess();
+        onClose();
+      }
     }
     setLoading(false);
   };
@@ -1245,14 +1297,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
     <div
       className="modal-overlay"
       ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
     >
       <div className="modal">
-        <button className="modal__close" onClick={onClose} aria-label="Close">✕</button>
+        <button className="modal__close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <div className="modal__header">
-          <h2 className="modal__title">{isSignUp ? "Create Account" : "Welcome back"}</h2>
+          <h2 className="modal__title">
+            {isSignUp ? "Create Account" : "Welcome back"}
+          </h2>
           <p className="modal__sub">
-            {isSignUp ? "Start finding leads for free." : "Sign in to your Ghost account."}
+            {isSignUp
+              ? "Start finding leads for free."
+              : "Sign in to your Ghost account."}
           </p>
         </div>
         <form className="modal__form" onSubmit={handleSubmit}>
@@ -1280,7 +1340,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <button type="button" className="modal__eye" onClick={() => setShowPw((s) => !s)} aria-label="Toggle password">
+              <button
+                type="button"
+                className="modal__eye"
+                onClick={() => setShowPw((s) => !s)}
+                aria-label="Toggle password"
+              >
                 {showPw ? "🙈" : "👁️"}
               </button>
             </div>
@@ -1290,19 +1355,37 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
             {loading ? "…" : isSignUp ? "Create Account" : "Sign In"}
           </button>
         </form>
-        <div className="modal__divider"><span>or</span></div>
+        <div className="modal__divider">
+          <span>or</span>
+        </div>
         <button className="modal__google" onClick={handleGoogle}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            <path
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              fill="#4285F4"
+            />
+            <path
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              fill="#34A853"
+            />
+            <path
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              fill="#EA4335"
+            />
           </svg>
           Continue with Google
         </button>
         <p className="modal__switch">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button type="button" className="modal__switch-btn" onClick={switchMode}>
+          <button
+            type="button"
+            className="modal__switch-btn"
+            onClick={switchMode}
+          >
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>
         </p>
@@ -1313,17 +1396,33 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, onToast }) =>
 
 // ─── Usage Bar ────────────────────────────────────────────────────────────────
 
-const UsageBar: React.FC<{ usage: number; limit: number; isPro: boolean }> = ({ usage, limit, isPro }) => {
+const UsageBar: React.FC<{ usage: number; limit: number; isPro: boolean }> = ({
+  usage,
+  limit,
+  isPro,
+}) => {
   if (isPro)
-    return <div className="usage-bar"><span className="usage-bar__pro">✦ PRO</span></div>;
+    return (
+      <div className="usage-bar">
+        <span className="usage-bar__pro">✦ PRO</span>
+      </div>
+    );
   const pct = Math.min((usage / limit) * 100, 100);
   const isMaxed = usage >= limit;
   return (
     <div className="usage-bar" title={`${usage} / ${limit} free searches used`}>
-      <div className={`usage-bar__track${isMaxed ? " usage-bar__track--maxed" : ""}`}>
+      <div
+        className={`usage-bar__track${
+          isMaxed ? " usage-bar__track--maxed" : ""
+        }`}
+      >
         <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
       </div>
-      <span className={`usage-bar__label${isMaxed ? " usage-bar__label--maxed" : ""}`}>
+      <span
+        className={`usage-bar__label${
+          isMaxed ? " usage-bar__label--maxed" : ""
+        }`}
+      >
         {isMaxed ? "Limit" : `${usage}/${limit}`}
       </span>
     </div>
@@ -1338,9 +1437,16 @@ interface PricingViewProps {
   onSignIn: () => void;
 }
 
-const PricingView: React.FC<PricingViewProps> = ({ isPro, isLoggedIn, onSignIn }) => {
+const PricingView: React.FC<PricingViewProps> = ({
+  isPro,
+  isLoggedIn,
+  onSignIn,
+}) => {
   const handleUpgrade = () => {
-    if (!isLoggedIn) { onSignIn(); return; }
+    if (!isLoggedIn) {
+      onSignIn();
+      return;
+    }
     if (typeof window.LemonSqueezy !== "undefined") {
       window.LemonSqueezy.Url.Open(LS_CHECKOUT_URL);
     } else {
@@ -1352,7 +1458,9 @@ const PricingView: React.FC<PricingViewProps> = ({ isPro, isLoggedIn, onSignIn }
     <div className="pricing">
       <header className="pricing__hero">
         <h1 className="pricing__title">Simple, honest pricing</h1>
-        <p className="pricing__sub">Start for free. Upgrade when you need more power.</p>
+        <p className="pricing__sub">
+          Start for free. Upgrade when you need more power.
+        </p>
       </header>
       <div className="pricing__grid">
         <div className="plan-card">
@@ -1379,9 +1487,13 @@ const PricingView: React.FC<PricingViewProps> = ({ isPro, isLoggedIn, onSignIn }
           </ul>
           <div className="plan-card__cta">
             {isLoggedIn ? (
-              <button className="btn btn--outline btn--full" disabled>Current plan</button>
+              <button className="btn btn--outline btn--full" disabled>
+                Current plan
+              </button>
             ) : (
-              <button className="btn btn--outline btn--full" onClick={onSignIn}>Get started free</button>
+              <button className="btn btn--outline btn--full" onClick={onSignIn}>
+                Get started free
+              </button>
             )}
           </div>
         </div>
@@ -1399,18 +1511,27 @@ const PricingView: React.FC<PricingViewProps> = ({ isPro, isLoggedIn, onSignIn }
           <ul className="plan-card__features">
             {PRICING_PRO_FEATURES.map((f) => (
               <li key={f} className="plan-card__feature">
-                <span className="plan-card__check plan-card__check--pro">✓</span> {f}
+                <span className="plan-card__check plan-card__check--pro">
+                  ✓
+                </span>{" "}
+                {f}
               </li>
             ))}
           </ul>
           <div className="plan-card__cta">
-            <button className="btn btn--primary btn--full" onClick={handleUpgrade} disabled={isPro}>
+            <button
+              className="btn btn--primary btn--full"
+              onClick={handleUpgrade}
+              disabled={isPro}
+            >
               {isPro ? "✦ Active plan" : "Upgrade to PRO"}
             </button>
           </div>
         </div>
       </div>
-      <p className="pricing__note">All plans include a 7-day money-back guarantee. No questions asked.</p>
+      <p className="pricing__note">
+        All plans include a 7-day money-back guarantee. No questions asked.
+      </p>
     </div>
   );
 };
@@ -1421,8 +1542,16 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>("search");
   const [user, setUser] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
-  const [profile, setProfile] = useState<Profile>({ search_count: 0, is_pro: false, plan_type: "free" });
-  const [formData, setFormData] = useState<ClassicFormData>({ job_title: "", company: "", location: "" });
+  const [profile, setProfile] = useState<Profile>({
+    search_count: 0,
+    is_pro: false,
+    plan_type: "free",
+  });
+  const [formData, setFormData] = useState<ClassicFormData>({
+    job_title: "",
+    company: "",
+    location: "",
+  });
   const [aiPrompt, setAiPrompt] = useState("");
   const [isSmartMode, setIsSmartMode] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
@@ -1436,25 +1565,40 @@ const App: React.FC = () => {
   const usage = profile.search_count;
   const isLimited = !isPro && usage >= FREE_LIMIT;
 
-  const addToast = useCallback((message: string, type: Toast["type"] = "info") => {
-    const id = ++toastIdCounter;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
-  }, []);
+  const addToast = useCallback(
+    (message: string, type: Toast["type"] = "info") => {
+      const id = ++toastIdCounter;
+      setToasts((prev) => [...prev, { id, message, type }]);
+      setTimeout(
+        () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+        4000
+      );
+    },
+    []
+  );
 
   // ── Auth + profile ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => setUser(session?.user ?? null));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const fetchProfile = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setProfile({ search_count: 0, is_pro: false, plan_type: "free" }); return; }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      setProfile({ search_count: 0, is_pro: false, plan_type: "free" });
+      return;
+    }
     const { data } = await supabase
       .from("profiles")
       .select("search_count, is_pro, plan_type")
@@ -1463,16 +1607,26 @@ const App: React.FC = () => {
     if (data) setProfile(data as Profile);
   }, []);
 
-  useEffect(() => { if (user) fetchProfile(); }, [user, fetchProfile]);
+  useEffect(() => {
+    if (user) fetchProfile();
+  }, [user, fetchProfile]);
 
   useEffect(() => {
     const saved = localStorage.getItem("search_history");
-    if (saved) { try { setHistory(JSON.parse(saved)); } catch { localStorage.removeItem("search_history"); } }
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch {
+        localStorage.removeItem("search_history");
+      }
+    }
   }, []);
 
   useEffect(() => {
     document.body.style.overflow = showModal ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [showModal]);
 
   // Supabase Realtime — обновляет профиль когда webhook ставит is_pro=true
@@ -1480,22 +1634,38 @@ const App: React.FC = () => {
     if (!user || channelRef.current) return;
     const channel = supabase
       .channel("profile-changes")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
         () => fetchProfile()
       )
       .subscribe();
     channelRef.current = channel;
     return () => {
-      if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [user, fetchProfile]);
 
   // LemonSqueezy overlay payment success → fetchProfile без перезагрузки
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.event === "Lemon.OrderCreated" || e.data?.event === "Lemon.SubscriptionCreated") {
+      if (
+        e.data?.event === "Lemon.OrderCreated" ||
+        e.data?.event === "Lemon.SubscriptionCreated"
+      ) {
         fetchProfile();
-        addToast("Payment confirmed! Your PRO access is now active. ✦", "success");
+        addToast(
+          "Payment confirmed! Your PRO access is now active. ✦",
+          "success"
+        );
       }
     };
     window.addEventListener("message", handleMessage);
@@ -1511,17 +1681,23 @@ const App: React.FC = () => {
   };
 
   const addToHistory = (query: string, url: string) => {
-    const next = [{ query, url, date: new Date().toLocaleTimeString() }, ...history].slice(0, 10);
+    const next = [
+      { query, url, date: new Date().toLocaleTimeString() },
+      ...history,
+    ].slice(0, 10);
     setHistory(next);
     localStorage.setItem("search_history", JSON.stringify(next));
   };
 
-  const clearHistory = () => { setHistory([]); localStorage.removeItem("search_history"); };
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem("search_history");
+  };
 
   // Presets: бесплатным — подставляет в Classic; PRO — активирует AI режим
   const handlePresetClick = (query: string) => {
     if (!isPro) {
-      const cleaned = query.split(" at ")[0].split(" or ")[0];
+      const cleaned = query.split(" at ")[0].split(" or ")[0].split(" with ")[0];
       setFormData({ job_title: cleaned, company: "", location: "" });
       setIsSmartMode(false);
       return;
@@ -1538,8 +1714,14 @@ const App: React.FC = () => {
 
   const handleClassicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { setShowModal(true); return; }
-    if (isLimited) { setView("pricing"); return; }
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
+    if (isLimited) {
+      setView("pricing");
+      return;
+    }
     setLoading(true);
     try {
       const auth = await getAuthHeader();
@@ -1549,12 +1731,23 @@ const App: React.FC = () => {
         body: JSON.stringify(formData),
       });
       const data: SearchResult = await res.json();
-      if (res.status === 403) { setProfile((p) => ({ ...p, search_count: FREE_LIMIT })); setView("pricing"); return; }
-      if (!res.ok) { addToast(data.detail || "Server error. Please try again.", "error"); return; }
+      if (res.status === 403) {
+        setProfile((p) => ({ ...p, search_count: FREE_LIMIT }));
+        setView("pricing");
+        return;
+      }
+      if (!res.ok) {
+        addToast(data.detail || "Server error. Please try again.", "error");
+        return;
+      }
       setCurrentUrl(data.google_url);
       setCurrentRawQuery(data.raw_query);
       addToHistory(formData.job_title, data.google_url);
-      if (typeof data.current_usage === "number") setProfile((p) => ({ ...p, search_count: data.current_usage as number }));
+      if (typeof data.current_usage === "number")
+        setProfile((p) => ({
+          ...p,
+          search_count: data.current_usage as number,
+        }));
     } catch (err: any) {
       if (err.message === "NOT_LOGGED_IN") setShowModal(true);
       else addToast("Network error. Please check your connection.", "error");
@@ -1565,9 +1758,18 @@ const App: React.FC = () => {
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { setShowModal(true); return; }
-    if (!isPro) { setView("pricing"); return; }
-    if (isLimited) { setView("pricing"); return; }
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
+    if (!isPro) {
+      setView("pricing");
+      return;
+    }
+    if (isLimited) {
+      setView("pricing");
+      return;
+    }
     setLoading(true);
     try {
       const auth = await getAuthHeader();
@@ -1577,12 +1779,19 @@ const App: React.FC = () => {
         body: JSON.stringify({ user_input: aiPrompt }),
       });
       const data = await res.json();
-      if (res.status === 403) { setView("pricing"); return; }
-      if (!res.ok) { addToast(data.detail || "Server error. Please try again.", "error"); return; }
+      if (res.status === 403) {
+        setView("pricing");
+        return;
+      }
+      if (!res.ok) {
+        addToast(data.detail || "Server error. Please try again.", "error");
+        return;
+      }
       setCurrentUrl(data.google_url);
       setCurrentRawQuery(aiPrompt);
       addToHistory(aiPrompt, data.google_url);
-      if (typeof data.current_usage === "number") setProfile((p) => ({ ...p, search_count: data.current_usage }));
+      if (typeof data.current_usage === "number")
+        setProfile((p) => ({ ...p, search_count: data.current_usage }));
     } catch (err: any) {
       if (err.message === "NOT_LOGGED_IN") setShowModal(true);
       else addToast("Network error. Please check your connection.", "error");
@@ -1592,9 +1801,18 @@ const App: React.FC = () => {
   };
 
   const handleExport = async () => {
-    if (!history.length) { addToast("No searches to export yet.", "info"); return; }
-    if (!isPro) { setView("pricing"); return; }
-    if (!user) { setShowModal(true); return; }
+    if (!history.length) {
+      addToast("No searches to export yet.", "info");
+      return;
+    }
+    if (!isPro) {
+      setView("pricing");
+      return;
+    }
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
     try {
       const auth = await getAuthHeader();
       const res = await fetch(`${API_BASE}/export-csv`, {
@@ -1602,8 +1820,14 @@ const App: React.FC = () => {
         headers: { "Content-Type": "application/json", Authorization: auth },
         body: JSON.stringify(history),
       });
-      if (res.status === 403) { setView("pricing"); return; }
-      if (!res.ok) { addToast("Export failed. Please try again.", "error"); return; }
+      if (res.status === 403) {
+        setView("pricing");
+        return;
+      }
+      if (!res.ok) {
+        addToast("Export failed. Please try again.", "error");
+        return;
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1623,24 +1847,50 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      <ToastContainer toasts={toasts} onRemove={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))} />
+      <ToastContainer
+        toasts={toasts}
+        onRemove={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+      />
 
       <nav className="navbar">
         <div className="navbar__inner">
-          <button className="navbar__logo" onClick={() => setView("search")}>Ghost 👻</button>
+          <button className="navbar__logo" onClick={() => setView("search")}>
+            Ghost 👻
+          </button>
           <div className="navbar__nav">
-            <button className={`navbar__nav-btn${view === "search" ? " navbar__nav-btn--active" : ""}`} onClick={() => setView("search")}>Search</button>
-            <button className={`navbar__nav-btn${view === "pricing" ? " navbar__nav-btn--active" : ""}`} onClick={() => setView("pricing")}>Pricing</button>
+            <button
+              className={`navbar__nav-btn${
+                view === "search" ? " navbar__nav-btn--active" : ""
+              }`}
+              onClick={() => setView("search")}
+            >
+              Search
+            </button>
+            <button
+              className={`navbar__nav-btn${
+                view === "pricing" ? " navbar__nav-btn--active" : ""
+              }`}
+              onClick={() => setView("pricing")}
+            >
+              Pricing
+            </button>
           </div>
           <div className="navbar__right">
             {user ? (
               <div className="navbar__profile">
                 <UsageBar usage={usage} limit={FREE_LIMIT} isPro={isPro} />
                 <span className="navbar__email">{user.email}</span>
-                <button className="btn btn--ghost-sm" onClick={handleLogout}>Sign Out</button>
+                <button className="btn btn--ghost-sm" onClick={handleLogout}>
+                  Sign Out
+                </button>
               </div>
             ) : (
-              <button className="btn btn--signin" onClick={() => setShowModal(true)}>Sign In</button>
+              <button
+                className="btn btn--signin"
+                onClick={() => setShowModal(true)}
+              >
+                Sign In
+              </button>
             )}
           </div>
         </div>
@@ -1649,14 +1899,21 @@ const App: React.FC = () => {
       {showModal && (
         <AuthModal
           onClose={() => setShowModal(false)}
-          onSuccess={() => { setShowModal(false); fetchProfile(); }}
+          onSuccess={() => {
+            setShowModal(false);
+            fetchProfile();
+          }}
           onToast={addToast}
         />
       )}
 
       {view === "pricing" && (
         <main className="main">
-          <PricingView isPro={isPro} isLoggedIn={!!user} onSignIn={() => setShowModal(true)} />
+          <PricingView
+            isPro={isPro}
+            isLoggedIn={!!user}
+            onSignIn={() => setShowModal(true)}
+          />
         </main>
       )}
 
@@ -1664,15 +1921,30 @@ const App: React.FC = () => {
         <main className="main">
           <header className="hero">
             <h1 className="hero__title">Ghost Searcher PRO 👻</h1>
-            <p className="hero__sub">Bypass LinkedIn limits with Google Dorking</p>
+            <p className="hero__sub">
+              Bypass LinkedIn limits with Google Dorking
+            </p>
           </header>
 
           <div className="mode-toggle">
-            <button type="button" className={`mode-toggle__btn${!isSmartMode ? " mode-toggle__btn--active" : ""}`} onClick={() => switchMode(false)}>
+            <button
+              type="button"
+              className={`mode-toggle__btn${
+                !isSmartMode ? " mode-toggle__btn--active" : ""
+              }`}
+              onClick={() => switchMode(false)}
+            >
               Classic
             </button>
-            <button type="button" className={`mode-toggle__btn${isSmartMode ? " mode-toggle__btn--active" : ""}`} onClick={() => switchMode(true)}>
-              AI Strategist ✨ {!isPro && <span className="mode-toggle__pro-tag">PRO</span>}
+            <button
+              type="button"
+              className={`mode-toggle__btn${
+                isSmartMode ? " mode-toggle__btn--active" : ""
+              }`}
+              onClick={() => switchMode(true)}
+            >
+              AI Strategist ✨{" "}
+              {!isPro && <span className="mode-toggle__pro-tag">PRO</span>}
             </button>
           </div>
 
@@ -1680,11 +1952,17 @@ const App: React.FC = () => {
           <section className="presets">
             <p className="presets__label">
               Quick Templates{" "}
-              {!isPro && <span className="presets__hint">→ fills Classic Search</span>}
+              {!isPro && (
+                <span className="presets__hint">→ fills Classic Search</span>
+              )}
             </p>
             <div className="presets__row">
               {PRESETS.map((p) => (
-                <button key={p.label} className="preset-chip" onClick={() => handlePresetClick(p.query)}>
+                <button
+                  key={p.label}
+                  className="preset-chip"
+                  onClick={() => handlePresetClick(p.query)}
+                >
                   {p.label}
                 </button>
               ))}
@@ -1694,10 +1972,15 @@ const App: React.FC = () => {
           {isLimited && (
             <div className="limit-banner">
               <div className="limit-banner__body">
-                <strong>Free limit reached ({FREE_LIMIT}/{FREE_LIMIT})</strong>
+                <strong>
+                  Free limit reached ({FREE_LIMIT}/{FREE_LIMIT})
+                </strong>
                 <p>Upgrade to PRO for unlimited searches and AI Strategist.</p>
               </div>
-              <button className="btn btn--upgrade btn--sm" onClick={() => setView("pricing")}>
+              <button
+                className="btn btn--upgrade btn--sm"
+                onClick={() => setView("pricing")}
+              >
                 Upgrade to PRO 🚀
               </button>
             </div>
@@ -1709,31 +1992,76 @@ const App: React.FC = () => {
               {isLimited && (
                 <div className="search-form__paywall">
                   🔒 Daily limit reached.{" "}
-                  <button type="button" className="search-form__paywall-link" onClick={() => setView("pricing")}>
+                  <button
+                    type="button"
+                    className="search-form__paywall-link"
+                    onClick={() => setView("pricing")}
+                  >
                     Upgrade to PRO →
                   </button>
                 </div>
               )}
-              <input className="field" type="text" placeholder="Job Title" value={formData.job_title}
-                disabled={isLimited} onChange={(e) => setFormData({ ...formData, job_title: e.target.value })} required />
-              <input className="field" type="text" placeholder="Company (optional)" value={formData.company}
-                disabled={isLimited} onChange={(e) => setFormData({ ...formData, company: e.target.value })} />
-              <input className="field" type="text" placeholder="Location (optional)" value={formData.location}
-                disabled={isLimited} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
-              <button type="submit"
-                className={`btn btn--full${isLimited ? " btn--locked" : " btn--primary"}`}
+              <input
+                className="field"
+                type="text"
+                placeholder="Job Title"
+                value={formData.job_title}
+                disabled={isLimited}
+                onChange={(e) =>
+                  setFormData({ ...formData, job_title: e.target.value })
+                }
+                required
+              />
+              <input
+                className="field"
+                type="text"
+                placeholder="Company (optional)"
+                value={formData.company}
+                disabled={isLimited}
+                onChange={(e) =>
+                  setFormData({ ...formData, company: e.target.value })
+                }
+              />
+              <input
+                className="field"
+                type="text"
+                placeholder="Location (optional)"
+                value={formData.location}
+                disabled={isLimited}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+              />
+              <button
+                type="submit"
+                className={`btn btn--full${
+                  isLimited ? " btn--locked" : " btn--primary"
+                }`}
                 disabled={loading || isLimited}
               >
-                {isLimited ? "🔒 Limit Reached" : loading ? "Thinking…" : "Generate Search URL"}
+                {isLimited
+                  ? "🔒 Limit Reached"
+                  : loading
+                  ? "Thinking…"
+                  : "Generate Search URL"}
               </button>
             </form>
           ) : (
             /* AI Strategist — input и кнопка заблокированы для free */
-            <form className={`search-form search-form--ai${!isPro ? " search-form--locked" : ""}`} onSubmit={handleAiSubmit}>
+            <form
+              className={`search-form search-form--ai${
+                !isPro ? " search-form--locked" : ""
+              }`}
+              onSubmit={handleAiSubmit}
+            >
               {!isPro && (
                 <div className="search-form__paywall">
                   ✨ AI Strategist — это функция{" "}
-                  <button type="button" className="search-form__paywall-link" onClick={() => setView("pricing")}>
+                  <button
+                    type="button"
+                    className="search-form__paywall-link"
+                    onClick={() => setView("pricing")}
+                  >
                     Ghost PRO
                   </button>
                   . Обновитесь, чтобы разблокировать.
@@ -1742,7 +2070,9 @@ const App: React.FC = () => {
               <input
                 className="field"
                 type="text"
-                placeholder={"e.g. Find senior recruiters at FAANG companies in NYC"}
+                placeholder={
+                  "e.g. Find senior recruiters at FAANG companies in NYC"
+                }
                 value={aiPrompt}
                 disabled={!isPro || isLimited}
                 onChange={(e) => setAiPrompt(e.target.value)}
@@ -1751,25 +2081,36 @@ const App: React.FC = () => {
               />
               <button
                 type={isPro ? "submit" : "button"}
-                className={`btn btn--full${!isPro || isLimited ? " btn--locked" : " btn--primary"}`}
+                className={`btn btn--full${
+                  !isPro || isLimited ? " btn--locked" : " btn--primary"
+                }`}
                 disabled={loading || isLimited}
                 onClick={!isPro ? () => setView("pricing") : undefined}
               >
                 {!isPro
                   ? "🔒 PRO only — Upgrade to unlock"
-                  : isLimited ? "🔒 Upgrade to Unlock"
-                  : loading ? "Thinking…"
+                  : isLimited
+                  ? "🔒 Upgrade to Unlock"
+                  : loading
+                  ? "Thinking…"
                   : "Ask AI Strategist ✨"}
               </button>
             </form>
           )}
 
           <div className="result-area">
-            {loading && <span className="result-area__pulse">Crafting your dork… 🧠</span>}
+            {loading && (
+              <span className="result-area__pulse">Crafting your dork… 🧠</span>
+            )}
             {currentUrl && !loading && (
               <div className="result-card">
                 <code className="result-card__code">{currentRawQuery}</code>
-                <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline">
+                <a
+                  href={currentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn--outline"
+                >
                   Open Search 🚀
                 </a>
               </div>
@@ -1778,8 +2119,16 @@ const App: React.FC = () => {
 
           {history.length >= 3 && !user && (
             <div className="upgrade-banner">
-              <p><strong>Sign in</strong> to track your search history and access more features.</p>
-              <button className="btn btn--primary btn--sm" onClick={() => setShowModal(true)}>Sign In Free</button>
+              <p>
+                <strong>Sign in</strong> to track your search history and access
+                more features.
+              </p>
+              <button
+                className="btn btn--primary btn--sm"
+                onClick={() => setShowModal(true)}
+              >
+                Sign In Free
+              </button>
             </div>
           )}
 
@@ -1789,18 +2138,33 @@ const App: React.FC = () => {
                 <span className="history__label">Recent Searches</span>
                 <div className="history__actions">
                   <button
-                    className={`btn btn--sm${isPro ? " btn--success" : " btn--locked"}`}
+                    className={`btn btn--sm${
+                      isPro ? " btn--success" : " btn--locked"
+                    }`}
                     onClick={handleExport}
-                    title={isPro ? "Export to CSV" : "CSV Export is a PRO feature"}
+                    title={
+                      isPro ? "Export to CSV" : "CSV Export is a PRO feature"
+                    }
                   >
                     {isPro ? "Export CSV ↓" : "🔒 Export CSV"}
                   </button>
-                  <button className="btn btn--danger btn--sm" onClick={clearHistory}>Clear All</button>
+                  <button
+                    className="btn btn--danger btn--sm"
+                    onClick={clearHistory}
+                  >
+                    Clear All
+                  </button>
                 </div>
               </div>
               <div className="history__grid">
                 {history.map((item, i) => (
-                  <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="history-card">
+                  <a
+                    key={i}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="history-card"
+                  >
                     <span className="history-card__query">{item.query}</span>
                     <small className="history-card__time">{item.date}</small>
                   </a>
