@@ -532,6 +532,7 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile({ search_count: 0, is_pro: false, plan_type: "free" });
+    setAiPrompt("");
   };
 
   const addToHistory = (query: string, url: string) => {
