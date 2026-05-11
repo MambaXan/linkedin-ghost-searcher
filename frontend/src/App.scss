@@ -73,87 +73,42 @@ body {
   right: 0;
   z-index: 300;
   height: var(--navbar-h);
-  background: rgba(10, 10, 10, 0.9);
+  background: rgba(10, 10, 10, 0.92);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-bottom: 1px solid var(--border-subtle);
 
+  // 3-колонка: лого | nav по центру | right
   &__inner {
-    max-width: 900px;
+    position: relative;
+    max-width: 1100px;
     height: 100%;
     margin: 0 auto;
-    padding: 0 1.5rem;
-    display: flex;
+    padding: 0 1.2rem;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
   }
 
   &__logo {
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     color: var(--text);
     background: none;
     border: none;
     cursor: pointer;
     padding: 0;
-    flex-shrink: 0;
+    justify-self: start;
     transition: opacity 0.15s;
+
     &:hover {
       opacity: 0.75;
     }
   }
-  // ─── Ghost logo icon ──────────────────────────────────────────────────────────
 
-  .logo-ghost {
-    display: inline-block;
-    position: relative;
-    width: 18px;
-    height: 20px;
-    background: var(--text);
-    border-radius: 9px 9px 0 0;
-    flex-shrink: 0;
-
-    // нижняя юбка привидения — зигзаг через box-shadow
-    &::before {
-      content: "";
-      position: absolute;
-      bottom: -5px;
-      left: 0;
-      width: 100%;
-      height: 6px;
-      background: radial-gradient(
-          circle at 17% 0%,
-          var(--bg) 40%,
-          transparent 41%
-        ),
-        radial-gradient(circle at 50% 0%, var(--bg) 40%, transparent 41%),
-        radial-gradient(circle at 83% 0%, var(--bg) 40%, transparent 41%),
-        var(--text);
-    }
-
-    // глаза
-    &::after {
-      content: "";
-      position: absolute;
-      top: 6px;
-      left: 3px;
-      width: 4px;
-      height: 4px;
-      background: var(--bg);
-      border-radius: 50%;
-      box-shadow: 8px 0 0 var(--bg);
-    }
-  }
-
-  // Navbar logo — flex для иконки + текста
-  .navbar__logo {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  // ── Center nav links ────────────────────────────────────────────────────
+  // Центральный блок ссылок
   &__nav {
     display: flex;
     align-items: center;
@@ -162,6 +117,10 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
     padding: 3px;
+
+    @media (max-width: 768px) {
+      display: none;
+    }
   }
 
   &__nav-btn {
@@ -174,29 +133,26 @@ body {
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
+    text-decoration: none;
     transition: background 0.15s, color 0.15s;
 
     &:hover:not(&--active) {
       color: var(--text);
       background: rgba(255, 255, 255, 0.04);
     }
+
     &--active {
       background: #282828;
       color: var(--text);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     }
   }
 
+  // Правая часть
   &__right {
     display: flex;
     align-items: center;
-    flex-shrink: 0;
-  }
-
-  &__profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 8px;
+    justify-self: end;
   }
 
   &__email {
@@ -207,10 +163,165 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       display: none;
     }
   }
+
+  // Текстовые кнопки — только десктоп
+  &__auth--desktop {
+    display: inline-flex;
+
+    @media (max-width: 768px) {
+      display: none;
+    }
+  }
+
+  // Иконки-двери — только мобилка
+  &__auth--mobile {
+    display: none;
+
+    @media (max-width: 768px) {
+      display: inline-flex;
+    }
+  }
+
+  // SVG кнопка-иконка (дверь)
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+    &:hover {
+      color: var(--text);
+      background: var(--bg-hover);
+      border-color: #3a3a3a;
+    }
+  }
+
+  // Бургер — только мобилка
+  &__burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 34px;
+    height: 34px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+
+    @media (max-width: 768px) {
+      display: inline-flex;
+    }
+
+    &:hover {
+      background: var(--bg-hover);
+      border-color: #3a3a3a;
+    }
+
+    span {
+      display: block;
+      width: 15px;
+      height: 1.5px;
+      background: var(--text-muted);
+      border-radius: 2px;
+      transition: transform 0.2s ease, opacity 0.15s ease;
+    }
+
+    &--open {
+      background: var(--bg-hover);
+      border-color: #3a3a3a;
+
+      span:nth-child(1) {
+        transform: translateY(6.5px) rotate(45deg);
+        background: var(--text);
+      }
+      span:nth-child(2) {
+        opacity: 0;
+        transform: scaleX(0);
+      }
+      span:nth-child(3) {
+        transform: translateY(-6.5px) rotate(-45deg);
+        background: var(--text);
+      }
+    }
+  }
+
+  // Выпадающее мобильное меню
+  &__dropdown {
+    position: absolute;
+    top: var(--navbar-h);
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    z-index: 299;
+    animation: slideDown 0.18s ease-out;
+  }
+
+  &__dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    text-decoration: none;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      color: var(--text);
+      background: var(--bg-hover);
+    }
+
+    &--active {
+      color: var(--text);
+      background: #282828;
+    }
+  }
+
+  &__dropdown-email {
+    padding: 0.55rem 1rem;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 // ─── Usage bar ────────────────────────────────────────────────────────────────
@@ -1193,6 +1304,24 @@ body {
   }
 }
 
+.plan-card {
+  opacity: 0.6;
+}
+
+.plan-card--inactive {
+  opacity: 0.6;
+}
+
+.plan-card--active {
+  opacity: 1;
+  border: 2px solid #8b5cf6;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.15),
+    0 0 32px rgba(139, 92, 246, 0.18),
+    0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+
 // ─── Animations ───────────────────────────────────────────────────────────────
 
 @keyframes fadeIn {
@@ -1398,5 +1527,130 @@ body {
     background: rgba(167, 139, 250, 0.04); // был rgba(0,0,0,0.18)
     border-radius: inherit;
     pointer-events: none;
+  }
+}
+@media (max-width: 768px) {
+  .main {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .hero__title {
+    font-size: 1.7rem;
+    line-height: 1.1;
+  }
+
+  .hero__sub {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .search-form,
+  .result-card,
+  .limit-banner,
+  .upgrade-banner,
+  .history,
+  .pricing {
+    width: 100%;
+  }
+
+  .pricing__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-card {
+    padding: 1.4rem;
+  }
+
+  .history__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history__actions {
+    width: 100%;
+
+    .btn {
+      flex: 1;
+    }
+  }
+
+  .limit-banner,
+  .upgrade-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .preset-chip {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mode-toggle {
+    width: 100%;
+
+    &__btn {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}
+// ─── Navbar: финальные правила видимости auth-кнопок ─────────────────────────
+
+// Текстовые кнопки Sign In / Sign Out — только десктоп
+.navbar__auth--desktop {
+  display: inline-flex !important;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    display: none !important;
+  }
+}
+
+// Иконки-двери — только мобилка
+.navbar__auth--mobile {
+  display: none !important;
+
+  @media (max-width: 768px) {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// ─── Navbar right: выравнивание на мобилке ────────────────────────────────────
+
+.navbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  margin-left: auto;   // прижимает весь блок вправо
+
+  @media (max-width: 768px) {
+    gap: 6px;
+  }
+}
+
+// Email — скрыт на мобилке
+.navbar__email {
+  @media (max-width: 768px) {
+    display: none !important;
+  }
+}
+// ─── Navbar: мобильная сетка ──────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .navbar__inner {
+    grid-template-columns: auto 1fr; // лого слева, правый блок занимает остаток
+  }
+
+  .navbar__nav {
+    display: none; // убираем центральную колонку из потока
+  }
+
+  .navbar__right {
+    justify-self: end;   // прижимаем вправо
+    margin-left: auto;
   }
 }

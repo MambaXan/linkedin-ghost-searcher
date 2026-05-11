@@ -392,6 +392,7 @@ const PricingView: React.FC<PricingViewProps> = ({
       onSignIn();
       return;
     }
+
     if (typeof window.LemonSqueezy !== "undefined") {
       window.LemonSqueezy.Url.Open(LS_CHECKOUT_URL);
     } else {
@@ -403,79 +404,111 @@ const PricingView: React.FC<PricingViewProps> = ({
     <div className="pricing">
       <header className="pricing__hero">
         <h1 className="pricing__title">Get the data LinkedIn hides from you</h1>
+
         <p className="pricing__sub">
           Start for free. Upgrade when you need more power.
         </p>
       </header>
+
       <div className="pricing__grid">
-        <div className="plan-card">
+        {/* FREE */}
+        <div
+          className={`plan-card ${
+            !isPro ? "plan-card--active" : "plan-card--inactive"
+          }`}
+        >
           <div className="plan-card__header">
             <span className="plan-card__name">Free</span>
+
             <div className="plan-card__price">
               <span className="plan-card__amount">$0</span>
               <span className="plan-card__period">/month</span>
             </div>
+
             <p className="plan-card__tagline">Good enough to get started.</p>
           </div>
+
           <ul className="plan-card__features">
             {PRICING_FREE_FEATURES.map((f) => (
               <li key={f} className="plan-card__feature">
-                <span className="plan-card__check">✓</span> {f}
+                <span className="plan-card__check">✓</span>
+                {f}
               </li>
             ))}
+
             <li className="plan-card__feature plan-card__feature--locked">
-              <span className="plan-card__lock">✕</span> AI Strategist
+              <span className="plan-card__lock">✕</span>
+              AI Strategist
             </li>
+
             <li className="plan-card__feature plan-card__feature--locked">
-              <span className="plan-card__lock">✕</span> CSV Export
+              <span className="plan-card__lock">✕</span>
+              CSV Export
             </li>
           </ul>
+
           <div className="plan-card__cta">
-            {isLoggedIn ? (
+            {!isPro ? (
               <button className="btn btn--outline btn--full" disabled>
-                Current plan
+                Current Plan
               </button>
             ) : (
-              <button className="btn btn--outline btn--full" onClick={onSignIn}>
-                Get started free
+              <button className="btn btn--outline btn--full" disabled>
+                Basic Access
               </button>
             )}
           </div>
         </div>
 
-        <div className="plan-card plan-card--pro">
+        {/* PRO */}
+        <div
+          className={`plan-card plan-card--pro ${
+            isPro ? "plan-card--active" : "plan-card--inactive"
+          }`}
+        >
           <div className="plan-card__badge">Most popular</div>
+
           <div className="plan-card__header">
             <span className="plan-card__name">GhostIn PRO</span>
+
             <div className="plan-card__price">
               <span className="plan-card__amount">$19</span>
               <span className="plan-card__period">/month</span>
             </div>
+
             <p className="plan-card__tagline">For serious lead hunters.</p>
           </div>
+
           <ul className="plan-card__features">
             {PRICING_PRO_FEATURES.map((f) => (
               <li key={f} className="plan-card__feature">
                 <span className="plan-card__check plan-card__check--pro">
                   ✓
-                </span>{" "}
+                </span>
                 {f}
               </li>
             ))}
           </ul>
+
           <div className="plan-card__cta">
-            <button
-              className="btn btn--primary btn--full"
-              onClick={handleUpgrade}
-              disabled={isPro}
-            >
-              {isPro ? "✦ Active plan" : "Upgrade to PRO"}
-            </button>
+            {isPro ? (
+              <button className="btn btn--primary btn--full" disabled>
+                ✦ Active Plan
+              </button>
+            ) : (
+              <button
+                className="btn btn--primary btn--full"
+                onClick={handleUpgrade}
+              >
+                Upgrade to Pro
+              </button>
+            )}
           </div>
         </div>
       </div>
+
       <p className="pricing__note">
-        All plans include a 7-day money-back guarantee. No questions asked.
+        All plans include a 7-day money-back guarantee.
       </p>
     </div>
   );
@@ -506,6 +539,8 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isFirstSearch, setIsFirstSearch] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
 
   const isPro = profile?.is_pro === true || profile?.plan_type === "pro";
@@ -525,6 +560,23 @@ const App: React.FC = () => {
   );
 
   // ── Auth + profile ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMenuOpen(false);
+    };
+    const handleOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleOutside);
+    };
+  }, [isMenuOpen]);
 
   useEffect(() => {
     supabase.auth
@@ -622,10 +674,15 @@ const App: React.FC = () => {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleLogout = async () => {
+    const confirmed = window.confirm("Are you sure you want to sign out?");
+
+    if (!confirmed) return;
+
     await supabase.auth.signOut();
     setUser(null);
     setProfile({ search_count: 0, is_pro: false, plan_type: "free" });
     setAiPrompt("");
+    setIsMenuOpen(false);
   };
 
   const addToHistory = (query: string, url: string) => {
@@ -812,52 +869,139 @@ const App: React.FC = () => {
 
       {/* ── Navbar ── */}
       <nav className="navbar">
-        <div className="navbar__inner">
-          <button className="navbar__logo" onClick={() => setView("search")}>
-            <span className="logo-ghost" aria-hidden="true" />
-            GhostIn
+  <div className="navbar__inner">
+
+    {/* Логотип */}
+    <button
+      className="navbar__logo"
+      onClick={() => { setView("search"); setIsMenuOpen(false); }}
+    >
+      GhostIn
+    </button>
+
+    {/* Центральные ссылки — только десктоп */}
+    <div className="navbar__nav">
+      <button
+        className={`navbar__nav-btn${view === "search" ? " navbar__nav-btn--active" : ""}`}
+        onClick={() => setView("search")}
+      >
+        Search
+      </button>
+      <button
+        className={`navbar__nav-btn${view === "pricing" ? " navbar__nav-btn--active" : ""}`}
+        onClick={() => setView("pricing")}
+      >
+        Pricing
+      </button>
+      <a className="navbar__nav-btn" href="mailto:funguy000001@gmail.com">
+        Support
+      </a>
+    </div>
+
+    {/* Правая часть */}
+    <div className="navbar__right">
+
+      {user ? (
+        <>
+          {/* UsageBar / PRO badge */}
+          <UsageBar usage={usage} limit={FREE_LIMIT} isPro={isPro} />
+
+          {/* Email — скрыт на мобилке */}
+          <span className="navbar__email">
+            {user.email}
+          </span>
+
+          {/* Sign Out — текст на десктопе, SVG на мобилке */}
+          <button
+            className="btn btn--ghost-sm navbar__auth--desktop"
+            onClick={handleLogout}
+          >
+            Sign Out
           </button>
-          <div className="navbar__nav">
-            <button
-              className={`navbar__nav-btn${
-                view === "search" ? " navbar__nav-btn--active" : ""
-              }`}
-              onClick={() => setView("search")}
-            >
-              Search
-            </button>
-            <button
-              className={`navbar__nav-btn${
-                view === "pricing" ? " navbar__nav-btn--active" : ""
-              }`}
-              onClick={() => setView("pricing")}
-            >
-              Pricing
-            </button>
-            <a className="navbar__nav-btn" href="mailto:funguy000001@gmail.com">
-              Support
-            </a>
-          </div>
-          <div className="navbar__right">
-            {user ? (
-              <div className="navbar__profile">
-                <UsageBar usage={usage} limit={FREE_LIMIT} isPro={isPro} />
-                <span className="navbar__email">{user.email}</span>
-                <button className="btn btn--ghost-sm" onClick={handleLogout}>
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <button
-                className="btn btn--signin"
-                onClick={() => setShowModal(true)}
-              >
-                Sign In
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
+          <button
+            className="navbar__icon-btn navbar__auth--mobile"
+            onClick={handleLogout}
+            aria-label="Sign Out"
+          >
+            {/* Дверь с выходом */}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </>
+      ) : (
+        <>
+          {/* Sign In — текст на десктопе, SVG на мобилке */}
+          <button
+            className="btn btn--signin navbar__auth--desktop"
+            onClick={() => setShowModal(true)}
+          >
+            Sign In
+          </button>
+          <button
+            className="navbar__icon-btn navbar__auth--mobile"
+            onClick={() => setShowModal(true)}
+            aria-label="Sign In"
+          >
+            {/* Дверь со входом */}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Бургер — только мобилка */}
+      <button
+        className={`navbar__burger${isMenuOpen ? " navbar__burger--open" : ""}`}
+        onClick={() => setIsMenuOpen((v: boolean) => !v)}
+        aria-label="Toggle menu"
+        aria-expanded={isMenuOpen}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+    </div>
+
+    {/* Мобильное меню */}
+    {isMenuOpen && (
+      <div className="navbar__dropdown">
+        <button
+          className={`navbar__dropdown-item${view === "search" ? " navbar__dropdown-item--active" : ""}`}
+          onClick={() => { setView("search"); setIsMenuOpen(false); }}
+        >
+          Search
+        </button>
+        <button
+          className={`navbar__dropdown-item${view === "pricing" ? " navbar__dropdown-item--active" : ""}`}
+          onClick={() => { setView("pricing"); setIsMenuOpen(false); }}
+        >
+          Pricing
+        </button>
+        <a
+          className="navbar__dropdown-item"
+          href="mailto:funguy000001@gmail.com"
+          onClick={() => setIsMenuOpen(false)}
+        >
+          Support
+        </a>
+        {user && (
+          <div className="navbar__dropdown-email">{user.email}</div>
+        )}
+      </div>
+    )}
+
+  </div>
+</nav>
 
       {/* ── Auth modal ── */}
       {showModal && (
@@ -1109,21 +1253,21 @@ const App: React.FC = () => {
           <div className="result-area">
             {loading && (
               <span className="result-area__pulse">
-                {isFirstSearch 
-                  ? "Server is waking up... this might take a minute ☕️" 
+                {isFirstSearch
+                  ? "Server is waking up... this might take a minute ☕️"
                   : "Crafting your dork... 🧠"}
               </span>
             )}
-            
+
             {currentUrl && !loading && (
               <div className="result-card">
                 <div className="result-card__header">
                   <code className="result-card__code">{currentRawQuery}</code>
                 </div>
-                <a 
-                  href={currentUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={currentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn btn--outline"
                 >
                   Open Search 🚀
