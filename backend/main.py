@@ -135,14 +135,11 @@ def increment_search_count(user_id: str, current_count: int) -> None:
 
 def sanitize_dork(dork: str) -> str:
     """Принудительно гарантирует site:linkedin.com/in/ и фильтры против вакансий."""
-    # Убираем любые другие site: операторы (jobs, search и т.д.)
     dork = re.sub(r'site:linkedin\.com/(?!in/)\S*', '', dork).strip()
 
-    # Гарантируем site:linkedin.com/in/ в начале
     if not dork.startswith(SITE_OPERATOR):
         dork = SITE_OPERATOR + " " + dork
 
-    # Добавляем весь блок фильтров, если хоть один отсутствует
     for token in ["-inurl:jobs", "-intitle:jobs", "-inurl:careers"]:
         if token not in dork:
             dork += PEOPLE_FILTER
@@ -203,15 +200,30 @@ async def ai_generate_query(data: AiRequest, user: dict = Depends(get_current_us
     if not is_pro_user(profile):
         raise HTTPException(status_code=403, detail="AI Strategist is a PRO feature")
 
+    # ВСТРАИВАЕМ ПРОМПТ ПРЯМО ТУТ (вместо open("strategist.md").read())
+    STRATEGIST_PROMPT = """
+    You are a professional OSINT and Recruitment Search Strategist. 
+    Your goal is to find INDIVIDUAL PEOPLE profiles on LinkedIn, not job postings.
+    
+    CRITICAL RULES:
+    1. Output ONLY the raw Google Dork query. No explanations.
+    2. Focus on LinkedIn personal profiles: site:linkedin.com/in/
+    3. EXCLUDE JOBS: Always include exclusion terms like -inurl:jobs -inurl:careers.
+    4. Target high-quality profiles based on user input.
+    """
+
     try:
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": open("strategist.md").read()},
+                {"role": "system", "content": STRATEGIST_PROMPT},
                 {"role": "user", "content": data.user_input},
             ],
         )
+        # Очистка результата
         dork = completion.choices[0].message.content.strip().replace('"', "").replace("`", "")
+        
+        # Твоя функция sanitize_dork сделает финальную полировку (добавит -inurl:jobs и т.д.)
         dork = sanitize_dork(dork)
 
         google_url = f"https://www.google.com/search?q={dork.replace(' ', '+')}"
