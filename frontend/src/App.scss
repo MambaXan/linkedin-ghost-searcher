@@ -320,8 +320,14 @@ body {
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 // ─── Usage bar ────────────────────────────────────────────────────────────────
@@ -1315,12 +1321,9 @@ body {
 .plan-card--active {
   opacity: 1;
   border: 2px solid #8b5cf6;
-  box-shadow:
-    0 0 0 1px rgba(139, 92, 246, 0.15),
-    0 0 32px rgba(139, 92, 246, 0.18),
-    0 8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.15),
+    0 0 32px rgba(139, 92, 246, 0.18), 0 8px 32px rgba(0, 0, 0, 0.45);
 }
-
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -1625,7 +1628,7 @@ body {
   align-items: center;
   gap: 8px;
   justify-self: end;
-  margin-left: auto;   // прижимает весь блок вправо
+  margin-left: auto; // прижимает весь блок вправо
 
   @media (max-width: 768px) {
     gap: 6px;
@@ -1650,7 +1653,16 @@ body {
   }
 
   .navbar__right {
-    justify-self: end;   // прижимаем вправо
+    justify-self: end; // прижимаем вправо
     margin-left: auto;
+  }
+}
+
+/* Глобальный фикс для мобильных инпутов */
+input,
+textarea,
+select {
+  @media (max-width: 768px) {
+    font-size: 16px !important;
   }
 }
