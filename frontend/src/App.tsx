@@ -48,6 +48,8 @@ interface Toast {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FREE_LIMIT = 5;
+const ANON_STORAGE_KEY = "ghostin_free_searches";
+const ANON_FREE_LIMIT = 5;
 const API_BASE = "https://linkedin-ghost-searcher.onrender.com";
 
 const LS_CHECKOUT_URL =
@@ -514,6 +516,130 @@ const PricingView: React.FC<PricingViewProps> = ({
   );
 };
 
+// ─── Anon free-search counter (localStorage) ──────────────────────────────────
+function getAnonSearches(): number {
+  try {
+    const raw = localStorage.getItem(ANON_STORAGE_KEY);
+    if (raw === null) {
+      localStorage.setItem(ANON_STORAGE_KEY, String(ANON_FREE_LIMIT));
+      return ANON_FREE_LIMIT;
+    }
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? ANON_FREE_LIMIT : Math.max(0, n);
+  } catch {
+    return ANON_FREE_LIMIT;
+  }
+}
+
+function decrementAnonSearches(): number {
+  const next = Math.max(0, getAnonSearches() - 1);
+  try {
+    localStorage.setItem(ANON_STORAGE_KEY, String(next));
+  } catch {}
+  return next;
+}
+
+function useAnonSearches(isLoggedIn: boolean) {
+  const [count, setCount] = useState<number>(() =>
+    isLoggedIn ? ANON_FREE_LIMIT : getAnonSearches()
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn) setCount(getAnonSearches());
+  }, [isLoggedIn]);
+
+  const decrement = useCallback(() => {
+    setCount(decrementAnonSearches());
+  }, []);
+
+  return { count, decrement };
+}
+
+// ─── Anon Counter Strip ────────────────────────────────────────────────────────
+const AnonCounter: React.FC<{ count: number }> = ({ count }) => {
+  const isLow = count <= 2;
+  return (
+    <div className={`anon-counter${isLow ? " anon-counter--low" : ""}`}>
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      Free searches left:{" "}
+      <strong>
+        {count}/{ANON_FREE_LIMIT}
+      </strong>
+    </div>
+  );
+};
+
+// ─── Paywall Modal (anon limit) ───────────────────────────────────────────────
+interface PaywallModalProps {
+  onSignUp: () => void;
+  onUpgrade: () => void;
+  onClose: () => void;
+}
+
+const PaywallModal: React.FC<PaywallModalProps> = ({
+  onSignUp,
+  onUpgrade,
+  onClose,
+}) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div
+      className="modal-overlay"
+      ref={overlayRef}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
+    >
+      <div className="modal modal--paywall">
+        <button className="modal__close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+        <div className="modal__header">
+          <div className="modal__paywall-icon">👻</div>
+          <h2 className="modal__title">You've hit the limit!</h2>
+          <p className="modal__sub">
+            To unlock unlimited searches, download candidates to CSV, and use
+            the full power of the AI Strategist — create a free account or
+            upgrade to PRO for just $19/mo.
+          </p>
+        </div>
+        <div className="modal__paywall-actions">
+          <button className="btn btn--primary btn--full" onClick={onSignUp}>
+            Sign Up for Free
+          </button>
+          <button className="btn btn--upgrade btn--full" onClick={onUpgrade}>
+            Get PRO for $19 🚀
+          </button>
+        </div>
+        <p className="modal__paywall-note">
+          No credit card required for free account.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
@@ -546,6 +672,11 @@ const App: React.FC = () => {
   const isPro = profile?.is_pro === true || profile?.plan_type === "pro";
   const usage = profile.search_count;
   const isLimited = !isPro && usage >= FREE_LIMIT;
+  const { count: anonCount, decrement: decrementAnon } = useAnonSearches(
+    !!user
+  );
+  const [showPaywall, setShowPaywall] = useState(false);
+  const isAnonLimited = !user && anonCount <= 0;
 
   const addToast = useCallback(
     (message: string, type: Toast["type"] = "info") => {
@@ -727,20 +858,28 @@ const App: React.FC = () => {
 
   const handleClassicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      setShowModal(true);
+    if (!user && anonCount <= 0) {
+      setShowPaywall(true);
       return;
     }
-    if (isLimited) {
+    if (user && isLimited) {
       setView("pricing");
       return;
     }
     setLoading(true);
     try {
-      const auth = await getAuthHeader();
+      // Собираем заголовки: если юзер есть — берем токен, если нет — шлем без него
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (user) {
+        const auth = await getAuthHeader();
+        headers["Authorization"] = auth;
+      }
+
       const res = await fetch(`${API_BASE}/generate-query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: auth },
+        headers,
         body: JSON.stringify(formData),
       });
       const data: SearchResult = await res.json();
@@ -757,14 +896,22 @@ const App: React.FC = () => {
       setIsFirstSearch(false);
       setCurrentRawQuery(data.raw_query);
       addToHistory(formData.job_title, data.google_url);
-      if (typeof data.current_usage === "number")
+
+      // Уменьшаем счетчик анонима локально ТОЛЬКО после успешного поиска
+      if (!user) decrementAnon();
+
+      if (typeof data.current_usage === "number" && user)
         setProfile((p) => ({
           ...p,
           search_count: data.current_usage as number,
         }));
     } catch (err: any) {
-      if (err.message === "NOT_LOGGED_IN") setShowModal(true);
-      else addToast("Network error. Please check your connection.", "error");
+      if (err.message === "NOT_LOGGED_IN" && user) setShowModal(true);
+      else
+        addToast(
+          "Network or server error. Please check your connection.",
+          "error"
+        );
     } finally {
       setLoading(false);
     }
@@ -772,6 +919,10 @@ const App: React.FC = () => {
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user && anonCount <= 0) {
+      setShowPaywall(true);
+      return;
+    }
     if (!user) {
       setShowModal(true);
       return;
@@ -869,139 +1020,167 @@ const App: React.FC = () => {
 
       {/* ── Navbar ── */}
       <nav className="navbar">
-  <div className="navbar__inner">
-
-    {/* Логотип */}
-    <button
-      className="navbar__logo"
-      onClick={() => { setView("search"); setIsMenuOpen(false); }}
-    >
-      GhostIn
-    </button>
-
-    {/* Центральные ссылки — только десктоп */}
-    <div className="navbar__nav">
-      <button
-        className={`navbar__nav-btn${view === "search" ? " navbar__nav-btn--active" : ""}`}
-        onClick={() => setView("search")}
-      >
-        Search
-      </button>
-      <button
-        className={`navbar__nav-btn${view === "pricing" ? " navbar__nav-btn--active" : ""}`}
-        onClick={() => setView("pricing")}
-      >
-        Pricing
-      </button>
-      <a className="navbar__nav-btn" href="mailto:funguy000001@gmail.com">
-        Support
-      </a>
-    </div>
-
-    {/* Правая часть */}
-    <div className="navbar__right">
-
-      {user ? (
-        <>
-          {/* UsageBar / PRO badge */}
-          <UsageBar usage={usage} limit={FREE_LIMIT} isPro={isPro} />
-
-          {/* Email — скрыт на мобилке */}
-          <span className="navbar__email">
-            {user.email}
-          </span>
-
-          {/* Sign Out — текст на десктопе, SVG на мобилке */}
+        <div className="navbar__inner">
+          {/* Логотип */}
           <button
-            className="btn btn--ghost-sm navbar__auth--desktop"
-            onClick={handleLogout}
+            className="navbar__logo"
+            onClick={() => {
+              setView("search");
+              setIsMenuOpen(false);
+            }}
           >
-            Sign Out
+            GhostIn
           </button>
-          <button
-            className="navbar__icon-btn navbar__auth--mobile"
-            onClick={handleLogout}
-            aria-label="Sign Out"
-          >
-            {/* Дверь с выходом */}
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="1.8"
-              strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
-        </>
-      ) : (
-        <>
-          {/* Sign In — текст на десктопе, SVG на мобилке */}
-          <button
-            className="btn btn--signin navbar__auth--desktop"
-            onClick={() => setShowModal(true)}
-          >
-            Sign In
-          </button>
-          <button
-            className="navbar__icon-btn navbar__auth--mobile"
-            onClick={() => setShowModal(true)}
-            aria-label="Sign In"
-          >
-            {/* Дверь со входом */}
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="1.8"
-              strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-              <polyline points="10 17 15 12 10 7"/>
-              <line x1="15" y1="12" x2="3" y2="12"/>
-            </svg>
-          </button>
-        </>
-      )}
 
-      {/* Бургер — только мобилка */}
-      <button
-        className={`navbar__burger${isMenuOpen ? " navbar__burger--open" : ""}`}
-        onClick={() => setIsMenuOpen((v: boolean) => !v)}
-        aria-label="Toggle menu"
-        aria-expanded={isMenuOpen}
-      >
-        <span />
-        <span />
-        <span />
-      </button>
-    </div>
+          {/* Центральные ссылки — только десктоп */}
+          <div className="navbar__nav">
+            <button
+              className={`navbar__nav-btn${
+                view === "search" ? " navbar__nav-btn--active" : ""
+              }`}
+              onClick={() => setView("search")}
+            >
+              Search
+            </button>
+            <button
+              className={`navbar__nav-btn${
+                view === "pricing" ? " navbar__nav-btn--active" : ""
+              }`}
+              onClick={() => setView("pricing")}
+            >
+              Pricing
+            </button>
+            <a className="navbar__nav-btn" href="mailto:funguy000001@gmail.com">
+              Support
+            </a>
+          </div>
 
-    {/* Мобильное меню */}
-    {isMenuOpen && (
-      <div className="navbar__dropdown">
-        <button
-          className={`navbar__dropdown-item${view === "search" ? " navbar__dropdown-item--active" : ""}`}
-          onClick={() => { setView("search"); setIsMenuOpen(false); }}
-        >
-          Search
-        </button>
-        <button
-          className={`navbar__dropdown-item${view === "pricing" ? " navbar__dropdown-item--active" : ""}`}
-          onClick={() => { setView("pricing"); setIsMenuOpen(false); }}
-        >
-          Pricing
-        </button>
-        <a
-          className="navbar__dropdown-item"
-          href="mailto:funguy000001@gmail.com"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          Support
-        </a>
-        {user && (
-          <div className="navbar__dropdown-email">{user.email}</div>
-        )}
-      </div>
-    )}
+          {/* Правая часть */}
+          <div className="navbar__right">
+            {user ? (
+              <>
+                {/* UsageBar / PRO badge */}
+                <UsageBar usage={usage} limit={FREE_LIMIT} isPro={isPro} />
 
-  </div>
-</nav>
+                {/* Email — скрыт на мобилке */}
+                <span className="navbar__email">{user.email}</span>
+
+                {/* Sign Out — текст на десктопе, SVG на мобилке */}
+                <button
+                  className="btn btn--ghost-sm navbar__auth--desktop"
+                  onClick={handleLogout}
+                >
+                  Sign Out
+                </button>
+                <button
+                  className="navbar__icon-btn navbar__auth--mobile"
+                  onClick={handleLogout}
+                  aria-label="Sign Out"
+                >
+                  {/* Дверь с выходом */}
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Sign In — текст на десктопе, SVG на мобилке */}
+                <button
+                  className="btn btn--signin navbar__auth--desktop"
+                  onClick={() => setShowModal(true)}
+                >
+                  Sign In
+                </button>
+                <button
+                  className="navbar__icon-btn navbar__auth--mobile"
+                  onClick={() => setShowModal(true)}
+                  aria-label="Sign In"
+                >
+                  {/* Дверь со входом */}
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                    <polyline points="10 17 15 12 10 7" />
+                    <line x1="15" y1="12" x2="3" y2="12" />
+                  </svg>
+                </button>
+              </>
+            )}
+
+            {/* Бургер — только мобилка */}
+            <button
+              className={`navbar__burger${
+                isMenuOpen ? " navbar__burger--open" : ""
+              }`}
+              onClick={() => setIsMenuOpen((v: boolean) => !v)}
+              aria-label="Toggle menu"
+              aria-expanded={isMenuOpen}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          </div>
+
+          {/* Мобильное меню */}
+          {isMenuOpen && (
+            <div className="navbar__dropdown">
+              <button
+                className={`navbar__dropdown-item${
+                  view === "search" ? " navbar__dropdown-item--active" : ""
+                }`}
+                onClick={() => {
+                  setView("search");
+                  setIsMenuOpen(false);
+                }}
+              >
+                Search
+              </button>
+              <button
+                className={`navbar__dropdown-item${
+                  view === "pricing" ? " navbar__dropdown-item--active" : ""
+                }`}
+                onClick={() => {
+                  setView("pricing");
+                  setIsMenuOpen(false);
+                }}
+              >
+                Pricing
+              </button>
+              <a
+                className="navbar__dropdown-item"
+                href="mailto:funguy000001@gmail.com"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Support
+              </a>
+              {user && (
+                <div className="navbar__dropdown-email">{user.email}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </nav>
 
       {/* ── Auth modal ── */}
       {showModal && (
@@ -1012,6 +1191,25 @@ const App: React.FC = () => {
             fetchProfile();
           }}
           onToast={addToast}
+        />
+      )}
+
+      {/* ── Paywall modal ── */}
+      {showPaywall && (
+        <PaywallModal
+          onSignUp={() => {
+            setShowPaywall(false);
+            setShowModal(true);
+          }}
+          onUpgrade={() => {
+            setShowPaywall(false);
+            if (typeof window.LemonSqueezy !== "undefined") {
+              window.LemonSqueezy.Url.Open(LS_CHECKOUT_URL);
+            } else {
+              window.open(LS_CHECKOUT_URL.replace("?embed=1", ""), "_blank");
+            }
+          }}
+          onClose={() => setShowPaywall(false)}
         />
       )}
 
@@ -1139,114 +1337,142 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Classic form */}
+          {/* Forms Section */}
           {!isSmartMode ? (
-            <form className="search-form" onSubmit={handleClassicSubmit}>
-              {isLimited && (
-                <div className="search-form__paywall">
-                  🔒 Daily limit reached.{" "}
-                  <button
-                    type="button"
-                    className="search-form__paywall-link"
-                    onClick={() => setView("pricing")}
-                  >
-                    Upgrade to PRO →
-                  </button>
-                </div>
-              )}
-              <input
-                className="field"
-                type="text"
-                placeholder="Job Title"
-                value={formData.job_title}
-                disabled={isLimited}
-                onChange={(e) =>
-                  setFormData({ ...formData, job_title: e.target.value })
-                }
-                required
-              />
-              <input
-                className="field"
-                type="text"
-                placeholder="Company (optional)"
-                value={formData.company}
-                disabled={isLimited}
-                onChange={(e) =>
-                  setFormData({ ...formData, company: e.target.value })
-                }
-              />
-              <input
-                className="field"
-                type="text"
-                placeholder="Location (optional)"
-                value={formData.location}
-                disabled={isLimited}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
-              />
-              <button
-                type="submit"
-                className={`btn btn--full${
-                  isLimited ? " btn--locked" : " btn--primary"
-                }`}
-                disabled={loading || isLimited}
-              >
-                {isLimited
-                  ? "🔒 Limit Reached"
-                  : loading
-                  ? "Thinking…"
-                  : "Generate Search URL"}
-              </button>
-            </form>
-          ) : (
-            /* AI Strategist */
-            <form
-              className={`search-form search-form--ai${
-                !isPro ? " search-form--locked" : ""
-              }`}
-              onSubmit={handleAiSubmit}
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "1rem",
+              }}
             >
-              {!isPro && (
-                <div className="search-form__paywall">
-                  ✨ AI Strategist is a{" "}
-                  <button
-                    type="button"
-                    className="search-form__paywall-link"
-                    onClick={() => setView("pricing")}
-                  >
-                    GhostIn PRO
-                  </button>{" "}
-                  feature. Upgrade to unlock.
-                </div>
-              )}
-              <input
-                className="field"
-                type="text"
-                placeholder="e.g. Find senior recruiters at FAANG companies in NYC"
-                value={aiPrompt}
-                disabled={!isPro || isLimited}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onClick={!isPro ? () => setView("pricing") : undefined}
-                required={isPro}
-              />
-              <button
-                type={isPro ? "submit" : "button"}
-                className={`btn btn--full${
-                  !isPro || isLimited ? " btn--locked" : " btn--primary"
-                }`}
-                disabled={loading || isLimited}
-                onClick={!isPro ? () => setView("pricing") : undefined}
+              {!user && <AnonCounter count={anonCount} />}
+              <form className="search-form" onSubmit={handleClassicSubmit}>
+                {isLimited && (
+                  <div className="search-form__paywall">
+                    🔒 Daily limit reached.{" "}
+                    <button
+                      type="button"
+                      className="search-form__paywall-link"
+                      onClick={() => setView("pricing")}
+                    >
+                      Upgrade to PRO →
+                    </button>
+                  </div>
+                )}
+                <input
+                  className="field"
+                  type="text"
+                  placeholder="Job Title"
+                  value={formData.job_title}
+                  disabled={isLimited || isAnonLimited}
+                  onChange={(e) =>
+                    setFormData({ ...formData, job_title: e.target.value })
+                  }
+                  required
+                />
+                <input
+                  className="field"
+                  type="text"
+                  placeholder="Company (optional)"
+                  value={formData.company}
+                  disabled={isLimited || isAnonLimited}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company: e.target.value })
+                  }
+                />
+                <input
+                  className="field"
+                  type="text"
+                  placeholder="Location (optional)"
+                  value={formData.location}
+                  disabled={isLimited || isAnonLimited}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                />
+                <button
+                  type="submit"
+                  className={`btn btn--full${
+                    isLimited || isAnonLimited
+                      ? " btn--locked"
+                      : " btn--primary"
+                  }`}
+                  disabled={loading || isLimited || isAnonLimited}
+                >
+                  {isAnonLimited
+                    ? "🔒 Limit Reached — Sign Up Free"
+                    : isLimited
+                    ? "🔒 Limit Reached"
+                    : loading
+                    ? "Thinking…"
+                    : "Generate Search URL"}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "1rem",
+              }}
+            >
+              {/* AI Strategist */}
+              {!user && <AnonCounter count={anonCount} />}
+              <form
+                className="search-form search-form--ai"
+                onSubmit={handleAiSubmit}
               >
-                {!isPro
-                  ? "🔒 PRO only — Upgrade to unlock"
-                  : isLimited
-                  ? "🔒 Upgrade to Unlock"
-                  : loading
-                  ? "Thinking…"
-                  : "Ask AI Strategist ✨"}
-              </button>
-            </form>
+                {!isPro && (
+                  <div className="search-form__paywall">
+                    ✨ AI Strategist is a{" "}
+                    <button
+                      type="button"
+                      className="search-form__paywall-link"
+                      onClick={() => setView("pricing")}
+                    >
+                      GhostIn PRO
+                    </button>{" "}
+                    feature. Upgrade to unlock.
+                  </div>
+                )}
+                <input
+                  className="field"
+                  type="text"
+                  placeholder="e.g. Find senior recruiters at FAANG companies in NYC"
+                  value={aiPrompt}
+                  disabled={!isPro || isLimited || isAnonLimited}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onClick={!isPro ? () => setView("pricing") : undefined}
+                  required={isPro}
+                />
+                <button
+                  type={isPro ? "submit" : "button"}
+                  className={`btn btn--full${
+                    !isPro || isLimited || isAnonLimited
+                      ? " btn--locked"
+                      : " btn--primary"
+                  }`}
+                  disabled={loading || isLimited || isAnonLimited}
+                  onClick={!isPro ? () => setView("pricing") : undefined}
+                >
+                  {!isPro
+                    ? "🔒 PRO only — Upgrade to unlock"
+                    : isAnonLimited
+                    ? "🔒 Limit Reached — Sign Up Free"
+                    : isLimited
+                    ? "🔒 Upgrade to Unlock"
+                    : loading
+                    ? "Thinking…"
+                    : "Ask AI Strategist ✨"}
+                </button>
+              </form>
+            </div>
           )}
 
           {/* Result Area */}

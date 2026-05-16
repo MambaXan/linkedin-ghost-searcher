@@ -1,3 +1,5 @@
+from fastapi import Header, HTTPException
+from typing import Optional
 import os
 import re
 import logging
@@ -58,7 +60,8 @@ groq_client = Groq(api_key=api_key)
 
 def get_current_user(authorization: str = Header(None)) -> dict:
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        raise HTTPException(
+            status_code=401, detail="Missing Authorization header")
     try:
         token = authorization.split(" ")[1]
         user_response = supabase.auth.get_user(token)
@@ -161,28 +164,54 @@ async def get_templates():
 
 
 @app.post("/generate-query")
-async def generate_query(data: SearchQuery, user: dict = Depends(get_current_user)):
-    """Classic dorking — free users (up to 5) + PRO unlimited."""
-    user_id = user["sub"]
-    profile = get_or_create_profile(user_id, user.get("email", ""))
+async def generate_query(
+    data: SearchQuery,
+    authorization: Optional[str] = Header(
+        None)  # Делаем заголовок необязательным!
+):
+    """
+    Classic dorking.
+    - Авторизованные: лимиты проверяются на сервере через БД
+    - Анонимы: лимит считает клиент, бэк просто генерирует ссылку
+    """
+    user_id = None
+    profile = None
 
-    if check_free_limit(profile):
-        raise HTTPException(status_code=403, detail="Daily limit reached. Upgrade to PRO!")
+    # Если токен пришел — вытаскиваем юзера
+    if authorization:
+        try:
+            token = authorization.split(" ")[1]
+            user_response = supabase.auth.get_user(token)
+            if user_response.user:
+                user_id = user_response.user.id
+                email = user_response.user.email
+                profile = get_or_create_profile(user_id, email)
+        except Exception:
+            pass  # Если токен битый, не падаем, а обрабатываем как анонима
 
+    # Если юзер авторизован — проверяем его серверный лимит
+    if user_id and profile:
+        # Тут твоя функция проверки лимита (например, check_free_limit)
+        if profile.get("plan_type") != "pro" and profile.get("search_count", 0) >= 5:
+            raise HTTPException(
+                status_code=403, detail="Daily limit reached. Upgrade to PRO!")
+
+    # Генерируем поисковый dork
     dork = f'{SITE_OPERATOR} "{data.job_title}"'
     if data.company:
         dork += f' "{data.company}"'
     if data.location:
         dork += f' "{data.location}"'
-
     dork = sanitize_dork(dork)
 
-    increment_search_count(user_id, profile.get("search_count", 0))
+    # Если юзер авторизован — обновляем его счетчик в БД
+    if user_id and profile:
+        increment_search_count(user_id, profile.get("search_count", 0))
 
     return {
         "raw_query": dork,
         "google_url": f"https://www.google.com/search?q={dork.replace(' ', '+')}",
-        "current_usage": profile.get("search_count", 0) + 1,
+        "current_usage": (profile.get("search_count", 0) + 1) if profile else None,
     }
 
 
@@ -198,7 +227,8 @@ async def ai_generate_query(data: AiRequest, user: dict = Depends(get_current_us
         raise HTTPException(status_code=500, detail="Database error")
 
     if not is_pro_user(profile):
-        raise HTTPException(status_code=403, detail="AI Strategist is a PRO feature")
+        raise HTTPException(
+            status_code=403, detail="AI Strategist is a PRO feature")
 
     # ВСТРАИВАЕМ ПРОМПТ ПРЯМО ТУТ (вместо open("strategist.md").read())
     STRATEGIST_PROMPT = """
@@ -221,8 +251,9 @@ async def ai_generate_query(data: AiRequest, user: dict = Depends(get_current_us
             ],
         )
         # Очистка результата
-        dork = completion.choices[0].message.content.strip().replace('"', "").replace("`", "")
-        
+        dork = completion.choices[0].message.content.strip().replace(
+            '"', "").replace("`", "")
+
         # Твоя функция sanitize_dork сделает финальную полировку (добавит -inurl:jobs и т.д.)
         dork = sanitize_dork(dork)
 
@@ -237,18 +268,21 @@ async def ai_generate_query(data: AiRequest, user: dict = Depends(get_current_us
         }
     except Exception as e:
         logger.error(f"AI generation error for {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="AI generation failed. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="AI generation failed. Please try again.")
 
 
 @app.post("/export-csv")
 async def export_csv(history: List[HistoryItem], user: dict = Depends(get_current_user)):
     """CSV export — PRO only."""
     user_id = user["sub"]
-    res = supabase.table("profiles").select("plan_type, is_pro").eq("id", user_id).execute()
+    res = supabase.table("profiles").select(
+        "plan_type, is_pro").eq("id", user_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     if not is_pro_user(res.data[0]):
-        raise HTTPException(status_code=403, detail="CSV Export is a PRO feature")
+        raise HTTPException(
+            status_code=403, detail="CSV Export is a PRO feature")
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["query", "url", "date"])
@@ -281,7 +315,8 @@ async def lemonsqueezy_webhook(request: Request):
         ).hexdigest()
         if not hmac.compare_digest(signature, expected):
             logger.warning("Webhook signature mismatch — rejected")
-            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+            raise HTTPException(
+                status_code=401, detail="Invalid webhook signature")
 
     try:
         payload = await request.json()
@@ -290,7 +325,8 @@ async def lemonsqueezy_webhook(request: Request):
 
     event_name = payload.get("meta", {}).get("event_name", "")
     attributes = payload.get("data", {}).get("attributes", {})
-    email = attributes.get("user_email") or attributes.get("customer_email", "")
+    email = attributes.get("user_email") or attributes.get(
+        "customer_email", "")
 
     logger.info(f"Webhook: event={event_name}, email={email}")
 

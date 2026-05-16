@@ -1666,3 +1666,73 @@ select {
     font-size: 16px !important;
   }
 }
+
+// ─── Anon counter strip ───────────────────────────────────────────────────────
+.anon-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  width: 100%;
+  max-width: var(--content-w);
+
+  strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  svg {
+    flex-shrink: 0;
+    opacity: 0.5;
+  }
+
+  &--low {
+    background: rgba(245, 158, 11, 0.07);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--amber);
+
+    strong {
+      color: var(--amber);
+    }
+
+    svg {
+      opacity: 0.7;
+    }
+  }
+}
+
+// ─── Paywall modal extras ─────────────────────────────────────────────────────
+.modal--paywall {
+  text-align: center;
+
+  .modal__header {
+    padding-right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.modal__paywall-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.modal__paywall-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal__paywall-note {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-align: center;
+}
