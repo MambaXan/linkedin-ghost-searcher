@@ -1,6 +1,11 @@
-# LinkedIn Ghost Searcher 👻
+# GhostIn 👻 - AI-Powered LinkedIn OSINT Tool
 
-> Bypass LinkedIn's search limits using Google Dorking — find profiles anonymously, without triggering "LinkedIn Jail".
+Stop paying $150+/mo for LinkedIn Premium or Recruiter Lite. 
+
+**GhostIn** is a live tool that uses AI to automate complex Google X-Ray dorking, letting you find candidates hidden behind LinkedIn commercial search limits.
+
+### 🔗 Try it live (5 Free Searches Daily, No Registration Needed):
+👉 [https://ghostin.org](https://ghostin.org)
 
 ---
 
