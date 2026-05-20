@@ -1,11 +1,30 @@
-# GhostIn 👻 - AI-Powered LinkedIn OSINT Tool
+# GhostIn 👻 — AI-Powered LinkedIn OSINT & Sourcing Tool
 
-Stop paying $150+/mo for LinkedIn Premium or Recruiter Lite. 
+Stop hitting LinkedIn's strict Commercial Use Limits or paying $150+/month for Premium/Recruiter Lite subscriptions. 
 
-**GhostIn** is a live tool that uses AI to automate complex Google X-Ray dorking, letting you find candidates hidden behind LinkedIn commercial search limits.
+**GhostIn** is an open-source alternative that leverages an AI Strategist to automatically build complex Google X-Ray (Dorking) queries. It uncovers live, Google-indexed candidate profiles hidden behind LinkedIn paywalls.
 
-### 🔗 Try it live (5 Free Searches Daily, No Registration Needed):
-👉 [https://ghostin.org](https://ghostin.org)
+### 🔗 Try it Live (No Registration Required):
+👉 **[https://ghostin.org](https://ghostin.org?utm_source=github)** *(Get 5 free AI-powered searches daily directly on the homepage, completely anonymously).*
+
+---
+
+## 🚀 Key Features
+* **AI Strategist Mode:** Describe your ideal candidate in natural language (e.g., *"Senior React dev in Italy who worked at Stripe"*), and the AI will auto-craft perfect X-Ray dorks.
+* **Classic Dorking Mode:** Quick structured search by Job Title, Target Company, and Location.
+* **100% Safety:** Zero risk to your personal LinkedIn account since it uses public Google data.
+* **Zero Friction:** 5 daily searches with no login, no credit card, and no setup required.
+
+## 💡 Why This Project Exists
+LinkedIn aggressively limits how many profiles you can view for free each month, forcing solo founders, bootstrappers, and technical recruiters into expensive tiers. This tool bypasses those limitations by automating Google X-Ray search string generation, delivering highly targeted candidate profiles without the friction.
+
+## 🛠️ Tech Stack
+* **Frontend:** React, TypeScript, Tailwind CSS, Vite
+* **Backend:** Python, FastAPI, OpenAI API
+* **Deployment:** Vercel
+
+---
+*Built by an independent developer for recruiters and indie hackers. If you like this project, please drop a ⭐ to support it!*
 
 ---
 
